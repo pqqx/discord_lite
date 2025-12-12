@@ -112,28 +112,62 @@
         async function loadChannels(guild) {
             document.getElementById('guild-name').innerText = guild.name;
             document.getElementById('channel-panel').classList.remove('hidden');
+            document.getElementById('chat-section').classList.add('hidden'); // Hide chat when changing guilds
+            
             const channels = await apiRequest(`/guilds/${guild.id}/channels`);
             const list = document.getElementById('channel-list');
             list.innerHTML = '';
-            // とりあえずテキストチャンネルのみ表示。フィルタは甘くして確実に出るように
-            channels.filter(c => c.type === 0 || c.type === 5).sort((a,b)=>a.position - b.position).forEach(c => {
+
+            const channelsByCategory = channels.reduce((acc, channel) => {
+                const parentId = channel.parent_id || 'null';
+                if (!acc[parentId]) acc[parentId] = [];
+                acc[parentId].push(channel);
+                return acc;
+            }, {});
+
+            Object.values(channelsByCategory).forEach(chArray => chArray.sort((a,b) => a.position - b.position));
+
+            const categories = channels.filter(c => c.type === 4).sort((a,b)=> a.position - b.position);
+
+            const renderChannel = (c) => {
                 const d = document.createElement('div');
-                d.className = 'channel-item p-2 rounded cursor-pointer mb-1 text-sm truncate opacity-80';
+                d.id = `channel-${c.id}`;
+                d.className = 'channel-item p-2 rounded cursor-pointer mb-1 text-sm truncate opacity-80 hover:opacity-100';
                 d.innerText = `# ${c.name}`;
                 d.onclick = () => selectChannel(c);
                 list.appendChild(d);
+            };
+
+            // Render uncategorized channels first
+            if (channelsByCategory['null']) {
+                channelsByCategory['null'].filter(c => c.type === 0 || c.type === 5).forEach(renderChannel);
+            }
+
+            // Render categorized channels
+            categories.forEach(cat => {
+                const header = document.createElement('div');
+                header.className = 'px-1 pt-4 pb-1 text-xs font-bold uppercase tracking-wider text-gray-500';
+                header.innerText = cat.name;
+                list.appendChild(header);
+                
+                if (channelsByCategory[cat.id]) {
+                    channelsByCategory[cat.id].filter(c => c.type === 0 || c.type === 5).forEach(renderChannel);
+                }
             });
         }
+
 
         async function loadDms() {
             document.getElementById('guild-name').innerText = 'Direct Messages';
             document.getElementById('channel-panel').classList.remove('hidden');
+            document.getElementById('chat-section').classList.add('hidden'); // Hide chat when changing
             const channels = await apiRequest('/users/@me/channels');
             const list = document.getElementById('channel-list');
             list.innerHTML = '';
-            channels.forEach(c => {
+            channels.sort((a, b) => (b.last_message_id || 0) - (a.last_message_id || 0)).forEach(c => {
                 const name = c.name || (c.recipients?.[0]?.global_name || c.recipients?.[0]?.username || 'DM');
                 const d = document.createElement('div');
+                d.id = `channel-${c.id}`;
                 d.className = 'channel-item p-2 rounded cursor-pointer mb-1 text-sm truncate';
                 d.innerText = name;
                 d.onclick = () => selectChannel(c);
@@ -143,9 +177,16 @@
 
         async function selectChannel(ch) {
             currentChannelId = ch.id;
+
+            document.querySelectorAll('.channel-item.active').forEach(el => el.classList.remove('active'));
+            document.getElementById(`channel-${ch.id}`)?.classList.add('active');
+
             document.getElementById('chat-section').classList.remove('hidden');
-            document.getElementById('current-ch-name').innerText = ch.name || 'Chat';
-            document.getElementById('message-container').innerHTML = '<div class="text-center text-xs opacity-50">Loading history...</div>';
+            let chName = ch.name;
+            if(!ch.guild_id) chName = ch.name || (ch.recipients?.[0]?.global_name || ch.recipients?.[0]?.username || 'DM');
+            document.getElementById('current-ch-name').innerText = `# ${chName}`;
+
+            document.getElementById('message-container').innerHTML = '<div class="text-center text-xs opacity-50 m-auto">Loading history...</div>';
             const msgs = await apiRequest(`/channels/${ch.id}/messages?limit=50`);
             document.getElementById('message-container').innerHTML = '';
             if(Array.isArray(msgs)) msgs.reverse().forEach(renderMsg);
@@ -156,8 +197,13 @@
             if(!m.author) return;
             const container = document.getElementById('message-container');
             const authorName = m.author.global_name || m.author.username;
-            const avatar = m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/0.png`;
+            const avatar = m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${m.author.discriminator % 5}.png`;
             
+            let content = m.content.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            if (m.attachments?.length > 0 && m.attachments[0].content_type?.startsWith('image')) {
+                content += `<br><img src="${m.attachments[0].url}" class="message-content" style="max-height: 250px;"/>`;
+            }
+
             const div = document.createElement('div');
             div.className = "flex gap-3 items-start group";
             div.innerHTML = `
@@ -165,9 +211,9 @@
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
                         <span class="font-bold text-sm">${authorName}</span>
-                        <span class="text-[10px] opacity-40">${new Date(m.timestamp).toLocaleTimeString()}</span>
+                        <span class="text-[10px] opacity-40">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                     </div>
-                    <div class="text-sm break-words">${m.content.replace(/</g,'&lt;')}</div>
+                    <div class="text-sm break-words">${content}</div>
                 </div>
             `;
             container.appendChild(div);
@@ -189,6 +235,7 @@
                 const data = JSON.parse(e.data);
                 if(data.s) lastSequence = data.s;
                 if(data.op === 10) {
+                    if(heartbeatInterval) clearInterval(heartbeatInterval);
                     heartbeatInterval = setInterval(() => ws.send(JSON.stringify({op:1, d: lastSequence})), data.d.heartbeat_interval);
                     ws.send(JSON.stringify({ op: 2, d: { token: userToken, properties: { os: "windows", browser: "chrome", device: "" } } }));
                 }
@@ -199,8 +246,10 @@
             };
             ws.onclose = () => {
                 document.getElementById('ws-status').classList.replace('bg-green-500', 'bg-gray-500');
+                if(heartbeatInterval) clearInterval(heartbeatInterval);
                 setTimeout(connectWS, 5000);
             };
+            ws.onerror = (err) => { console.error('WS Error:', err); ws.close(); };
         }
 
         function scrollToBottom() { const c = document.getElementById('message-container'); c.scrollTop = c.scrollHeight; }
@@ -208,11 +257,11 @@
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); loginWithToken(document.getElementById('token-input').value); };
         document.getElementById('dm-icon').onclick = loadDms;
         document.getElementById('send-button').onclick = sendMessage;
-        document.getElementById('message-input').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
+        document.getElementById('message-input').onkeypress = (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }};
         
         const saved = localStorage.getItem('token');
         if(saved) loginWithToken(saved);
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches || localStorage.theme === 'dark') document.documentElement.classList.add('dark');
     </script>
 </body>
 </html>
