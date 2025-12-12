@@ -39,21 +39,21 @@
     </div>
 
     <div id="main-app" class="hidden flex-1 flex min-h-0">
-        <div class="w-20 p-2 flex flex-col items-center gap-2 overflow-y-auto" style="background-color: var(--bg-tertiary);">
-            <div id="dm-icon-container" class="mb-2">
-                <div id="dm-icon" title="Direct Messages" class="server-icon bg-gray-600 flex items-center justify-center cursor-pointer text-white">
-                    <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 576 512"><path d="M480 256c0 8.8-7.2 16-16 16H320c0-35.3 28.7-64 64-64 8.8 0 16 7.2 16 16v32c0 8.8 7.2 16 16 16h64zm-144 0c0-53 43-96 96-96s96 43 96 96-43 96-96 96-96-43-96-96zm-176-48c0-8.8-7.2-16-16-16H48c-8.8 0-16 7.2-16 16v32c0 8.8 7.2 16 16 16h112c8.8 0 16-7.2 16-16v-32zM224 256c0-53-43-96-96-96S32 203 32 256s43 96 96 96 96-43 96-96zM528 320H48c-26.5 0-48 21.5-48 48v96c0 26.5 21.5 48 48 48h480c26.5 0 48-21.5 48-48v-96c0-26.5-21.5-48-48-48z"/></svg>
-                </div>
+        <!-- Server List Column -->
+        <div class="w-20 p-2 flex flex-col items-center gap-2" style="background-color: var(--bg-tertiary);">
+            <div id="dm-icon" title="Direct Messages" class="server-icon bg-gray-600 flex items-center justify-center cursor-pointer text-white">
+                <span class="font-bold text-xl">DM</span>
             </div>
-            <div id="guild-list" class="flex flex-col items-center gap-2"></div>
+            <div id="guild-list" class="flex flex-col items-center gap-2 flex-grow overflow-y-auto"></div>
+            <button onclick="logout()" title="Logout" class="mt-auto server-icon bg-gray-600 hover:bg-red-500 flex items-center justify-center text-white flex-shrink-0">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            </button>
         </div>
+
         <div class="flex-1 flex min-h-0" style="background-color: var(--bg-secondary);">
             <div id="channel-panel" class="hidden w-60 p-2 flex flex-col border-r min-h-0" style="border-color: var(--border-color);">
-                <div class="flex justify-between items-center p-2 mb-2 flex-shrink-0">
+                <div class="p-2 mb-2 flex-shrink-0">
                     <h2 id="guild-name" class="font-bold text-lg truncate"></h2>
-                    <button onclick="logout()" title="Logout" class="text-red-500 hover:text-red-400">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    </button>
                 </div>
                 <div id="channel-list" class="flex-1 overflow-y-auto space-y-1"></div>
             </div>
@@ -206,7 +206,7 @@
             
             const container = document.getElementById('channel-list');
             container.innerHTML = '';
-            channels.filter(c => c.type === 1 || c.type === 3)
+            channels.filter(c => c.type === 1 || c.type === 3) // DM or Group DM
                 .sort((a,b) => (b.last_message_id || 0) - (a.last_message_id || 0))
                 .forEach(c => {
                     const el = document.createElement('div');
@@ -229,24 +229,53 @@
             document.getElementById('channel-panel').classList.remove('hidden'); 
             document.getElementById('chat-section').classList.add('hidden'); 
             
-            const channels = await apiRequest(`/guilds/${guildId}/channels`); 
+            // ★ FIX: Added with_permissions=true to get the user's computed permissions
+            const channels = await apiRequest(`/guilds/${guildId}/channels?with_permissions=true`); 
             if (!channels) return; 
             
             channelsCache[guildId] = channels; 
             const container = document.getElementById('channel-list'); 
             container.innerHTML = ''; 
             
-            const VIEW_CHANNEL_PERMISSION = 1024n;
-            channels.filter(c => c.type === 0 && (BigInt(c.permissions) & VIEW_CHANNEL_PERMISSION) === VIEW_CHANNEL_PERMISSION)
-                .sort((a,b) => a.position - b.position)
-                .forEach(c => { 
+            const VIEW_CHANNEL_PERMISSION = 1024n; // 1 << 10
+            
+            const categories = channels.filter(c => c.type === 4).sort((a, b) => a.position - b.position);
+            const orphanChannels = channels.filter(c => !c.parent_id && c.type === 0);
+
+            let displayableChannels = [];
+            
+            orphanChannels.forEach(c => displayableChannels.push(c));
+            
+            categories.forEach(category => {
+                const channelsInCategory = channels
+                    .filter(c => c.parent_id === category.id && c.type === 0)
+                    .sort((a, b) => a.position - b.position);
+                if (channelsInCategory.length > 0) {
+                   displayableChannels.push(category, ...channelsInCategory);
+                }
+            });
+
+
+            displayableChannels.forEach(c => { 
+                if (c.type === 4) { // It's a category
+                    const el = document.createElement('div');
+                    el.className = 'px-1 pt-4 pb-1 text-xs font-bold uppercase tracking-wider'
+                    el.style.color = 'var(--text-secondary)';
+                    el.innerText = c.name;
+                    container.appendChild(el);
+                    return;
+                }
+                
+                // It's a channel, check permissions
+                if (!c.permissions || (BigInt(c.permissions) & VIEW_CHANNEL_PERMISSION) === VIEW_CHANNEL_PERMISSION) {
                     const el = document.createElement('div'); 
                     el.id = `channel-${c.id}`; 
                     el.className = 'channel-item p-2 rounded-md cursor-pointer text-sm truncate'; 
                     el.innerText = `# ${c.name}`; 
                     el.onclick = () => selectChannel(c); 
                     container.appendChild(el); 
-                }); 
+                }
+            }); 
         }
 
         async function selectChannel(channel) { 
@@ -256,9 +285,9 @@
             document.getElementById('chat-section').classList.remove('hidden');
             
             let channelNameHTML;
-            if (channel.guild_id) { // Guild Channel
+            if (channel.guild_id) {
                  channelNameHTML = `<span class="text-xl" style="color:var(--text-secondary)">#</span><span class="font-bold text-lg">${channel.name}</span>`;
-            } else { // DM Channel
+            } else { 
                  let name = channel.name || (channel.recipients.length > 0 ? (channel.recipients[0].global_name || channel.recipients[0].username) : 'Unnamed');
                  channelNameHTML = `<span class="font-bold text-lg">${name}</span>`;
             }
@@ -308,23 +337,20 @@
         
         function connectWebSocket(isResuming = false) {
             if (ws) ws.close();
-            const url = isResuming ? GATEWAY_URL.replace('?','/resume?') : GATEWAY_URL; // Simplistic resume URL logic
             ws = new WebSocket(GATEWAY_URL);
-
             ws.onmessage = onWebSocketMessage;
             ws.onclose = (event) => {
                 console.warn(`WebSocket disconnected: ${event.code}`);
                 updateWsStatus(false);
                 clearInterval(heartbeatInterval);
-                if (event.code !== 4004) {
+                if (event.code !== 4004 && event.code < 4000) {
                     setTimeout(() => connectWebSocket(true), 5000);
-                } else {
-                    logout();
+                } else if (event.code >= 4000) {
+                    logout(event.code === 4004);
                 }
             };
             ws.onerror = (error) => console.error('WebSocket Error:', error);
         }
-
 
         function onWebSocketMessage(event) { 
             const payload = JSON.parse(event.data); 
@@ -360,8 +386,7 @@
             heartbeatInterval = setInterval(() => {
                 if (!heartbeatAckReceived) {
                     if (ws) ws.close();
-                    connectWebSocket(true);
-                    return;
+                    return; // onclose will handle reconnection
                 }
                 sendHeartbeat();
             }, ms);
