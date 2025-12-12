@@ -8,6 +8,7 @@
     <script>
         tailwind.config = { darkMode: 'class' }
     </script>
+    <script src="https://hcaptcha.com/1/api.js?onload=onHCaptchaLoad&render=explicit" async defer></script>
     <style>
         :root {
             --bg-primary: #f5f5f5; --bg-secondary: #ffffff; --bg-tertiary: #e0e0e0; --bg-quaternary: #ebebeb;
@@ -30,6 +31,8 @@
         .message-content img { max-width: 400px; max-height: 300px; border-radius: 8px; margin-top: 5px; }
         .loader { border: 4px solid var(--bg-tertiary); border-top: 4px solid var(--button-bg); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #captcha-modal-overlay { background-color: rgba(0,0,0,0.7); }
+        #captcha-modal-content { background-color: var(--bg-secondary); }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-secondary); }
         ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 4px; }
@@ -87,6 +90,15 @@
             </div>
         </div>
     </div>
+    
+    <div id="captcha-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+        <div id="captcha-modal-overlay" class="absolute inset-0"></div>
+        <div id="captcha-modal-content" class="relative p-8 rounded-lg shadow-xl text-center">
+            <h3 class="text-xl font-bold mb-4">Captcha Verification Required</h3>
+            <p class="text-sm mb-4" style="color:var(--text-secondary)">Please complete the challenge below to continue.</p>
+            <div id="captcha-box" class="flex justify-center"></div>
+        </div>
+    </div>
 
     <script>
         const LOGIN_PROXY_URL = '/api/login';
@@ -98,14 +110,20 @@
         
         let ws = null, sessionId = null, heartbeatInterval = null, lastSequence = null;
 
+        let hCaptchaLoaded = false;
+        let captchaQueue = [];
+        let isCaptchaVisible = false;
+
+        function onHCaptchaLoad() {
+            hCaptchaLoaded = true;
+            console.log('hCaptcha script loaded.');
+        }
+        
         window.addEventListener('DOMContentLoaded', () => {
             initTheme();
             document.getElementById('login-form').addEventListener('submit', handleLogin);
-
             const storedToken = localStorage.getItem('token');
-            if (storedToken) {
-                loginWithToken(storedToken.replace(/"/g, ''));
-            }
+            if (storedToken) loginWithToken(storedToken.replace(/"/g, ''));
         });
         
         function initTheme() {
@@ -129,7 +147,6 @@
             spinner.classList.remove('hidden');
 
             try {
-                // ログインだけプロキシねｗ
                 const response = await fetch(LOGIN_PROXY_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -155,7 +172,6 @@
         
         async function loginWithToken(token) {
             userToken = token;
-            // トークンチェックは直叩き笑
             const user = await apiRequest('/users/@me');
             if (user && user.id) {
                 localStorage.setItem('token', userToken);
@@ -171,7 +187,6 @@
             localStorage.removeItem('token');
             userToken = null;
             if (ws) ws.close();
-
             document.getElementById('auth-section').classList.remove('hidden');
             document.getElementById('main-app').classList.add('hidden');
         }
@@ -181,31 +196,91 @@
             connectWebSocket();
         }
 
-        async function apiRequest(path, method = 'GET', bodyData = null) {
+        function initCaptcha(sitekey, rqdata) {
+            if (!hCaptchaLoaded) {
+                console.error("hCaptcha is not loaded yet.");
+                alert("hCaptchaの読み込みに失敗しました。ページをリロードしてください。");
+                return;
+            }
+            const captchaBox = document.getElementById("captcha-box");
+            if(captchaBox.innerHTML !== "") return;
+
+            const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            const widgetId = window.hcaptcha.render("captcha-box", { sitekey, theme, callback: onCaptchaSuccess });
+            hcaptcha.setData(widgetId, { rqdata: rqdata });
+        }
+        
+        function processCaptchaQueue() {
+            if (isCaptchaVisible || captchaQueue.length === 0) return;
+            
+            isCaptchaVisible = true;
+            const task = captchaQueue[0];
+            
+            document.getElementById('captcha-modal').classList.remove('hidden');
+            initCaptcha(task.captcha.captcha_sitekey, task.captcha.captcha_rqdata);
+        }
+
+        async function onCaptchaSuccess(key) {
+            console.log("Captcha Solved! Key:", key);
+
+            isCaptchaVisible = false;
+            document.getElementById('captcha-modal').classList.add('hidden');
+            document.getElementById('captcha-box').innerHTML = "";
+            
+            const task = captchaQueue.shift();
+            if (!task) return;
+
+            const result = await apiRequest(task.request.path, task.request.method, task.request.bodyData, {
+                key: key,
+                rqtoken: task.captcha.captcha_rqtoken
+            });
+
+            processCaptchaQueue();
+        }
+
+
+        async function apiRequest(path, method = 'GET', bodyData = null, captchaData = null) {
             if (!userToken) return null;
             try {
-                const options = {
-                    method: method,
-                    headers: {
-                        'Authorization': userToken,
-                        'Content-Type': 'application/json'
-                    }
+                const headers = {
+                    'Authorization': userToken,
+                    'Content-Type': 'application/json',
+                    'x-super-properties': btoa(JSON.stringify({"os":"Windows","browser":"Chrome","device":"","system_locale":"ja","browser_user_agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36","browser_version":"123.0.0.0","os_version":"10","referrer":"","referring_domain":"","referrer_current":"","referring_domain_current":"","release_channel":"stable","client_build_number":999999,"client_event_source":null})),
                 };
-                if (bodyData) {
-                    options.body = JSON.stringify(bodyData);
-                }
-                const response = await fetch(API_BASE_URL + path, options);
 
-                if (response.status === 401) {
-                    logout();
+                if (captchaData) {
+                    headers['x-captcha-key'] = captchaData.key;
+                    headers['x-captcha-rqtoken'] = captchaData.rqtoken;
+                }
+
+                const options = { method, headers };
+                if (bodyData) options.body = JSON.stringify(bodyData);
+                
+                const response = await fetch(API_BASE_URL + path, options);
+                
+                if (response.status === 401) { logout(); return null; }
+
+                const responseData = (response.status === 204) ? {} : await response.json();
+
+                if (response.status === 400 && responseData.captcha_key) {
+                    console.warn('Captcha required by API. Adding to queue.', responseData);
+                    captchaQueue.push({
+                        request: { path, method, bodyData },
+                        captcha: responseData
+                    });
+                    processCaptchaQueue();
                     return null;
                 }
-                if (response.status === 204) return {};
+
+                if (!response.ok) {
+                    console.error(`API Error ${response.status}:`, responseData);
+                    return null;
+                }
                 
-                return await response.json();
+                return responseData;
+
             } catch (e) {
                 console.error('API Request failed:', e);
-                alert("APIリクエストでエラーが発生しました。CORSポリシー違反の可能性があります。");
                 return null;
             }
         }
@@ -273,12 +348,10 @@
             currentChannelId = channel.id;
             document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
             document.getElementById(`channel-${channel.id}`).classList.add('active');
-
             document.getElementById('chat-section').classList.remove('hidden');
             document.getElementById('current-ch-name').innerText = channel.name;
             document.getElementById('message-container').innerHTML = '';
             document.getElementById('message-input').disabled = false;
-
             const messages = await apiRequest(`/channels/${channel.id}/messages?limit=50`);
             if (messages) {
                 messages.slice().reverse().forEach(renderMessage);
@@ -291,9 +364,7 @@
             const div = document.createElement('div');
             const displayName = msg.author.global_name || msg.author.username;
             const avatarUrl = msg.author.avatar ? `https://cdn.discordapp.com/avatars/${msg.author.id}/${msg.author.avatar}.webp?size=64` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(msg.author.discriminator) || 0) % 5}.png`;
-            
             let contentHTML = msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/(https?:\/\/[^\s]+)/g, `<a href="$1" target="_blank" class="hover:underline" style="color:var(--text-link);">${'$1'}</a>`);
-            
             if (msg.attachments && msg.attachments.length > 0) {
                 msg.attachments.forEach(att => {
                     if (att.content_type?.startsWith('image/')) {
@@ -303,121 +374,59 @@
                     }
                 });
             }
-
             div.innerHTML = `
                 <div class="flex gap-4 py-1">
                     <img src="${avatarUrl}" class="w-10 h-10 rounded-full flex-shrink-0 mt-1">
                     <div>
-                        <div>
-                            <span class="font-bold">${displayName}</span>
-                            <span class="text-xs ml-2" style="color:var(--text-secondary)">${new Date(msg.timestamp).toLocaleString()}</span>
-                        </div>
+                        <div><span class="font-bold">${displayName}</span><span class="text-xs ml-2" style="color:var(--text-secondary)">${new Date(msg.timestamp).toLocaleString()}</span></div>
                         <div style="word-wrap:break-word;">${contentHTML}</div>
                     </div>
                 </div>`;
-                
             const shouldScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 30;
-            if (prepend) { container.prepend(div); } 
-            else { container.appendChild(div); }
-            if (shouldScroll) { scrollToBottom(); }
+            if (prepend) container.prepend(div); 
+            else container.appendChild(div);
+            if (shouldScroll) scrollToBottom();
         }
         
         async function sendMessage() {
             const input = document.getElementById('message-input');
             const content = input.value.trim();
             if (!content || !currentChannelId) return;
-            
-            const tempId = `temp_${Date.now()}`;
             input.value = '';
-            
-            await apiRequest(`/channels/${currentChannelId}/messages`, 'POST', { content: content, nonce: tempId });
+            await apiRequest(`/channels/${currentChannelId}/messages`, 'POST', { content: content, nonce: `temp_${Date.now()}` });
         }
         
         function connectWebSocket() {
             ws = new WebSocket(GATEWAY_URL);
             ws.onopen = () => console.log('WebSocket Connected');
             ws.onmessage = onWebSocketMessage;
-            ws.onclose = (event) => {
-                console.warn('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-                updateWsStatus(false);
-                clearInterval(heartbeatInterval);
-            };
+            ws.onclose = (event) => { console.warn('WebSocket disconnected.'); updateWsStatus(false); clearInterval(heartbeatInterval); };
             ws.onerror = (error) => console.error('WebSocket Error:', error);
         }
-
         function onWebSocketMessage(event) {
             const payload = JSON.parse(event.data);
-            if (payload.s) { lastSequence = payload.s; }
-
+            if (payload.s) lastSequence = payload.s;
             switch (payload.op) {
-                case 0:
-                    handleDispatch(payload.t, payload.d);
-                    break;
-                case 1:
-                    sendHeartbeat();
-                    break;
-                case 10:
-                    startHeartbeat(payload.d.heartbeat_interval);
-                    identify();
-                    break;
-                case 11:
-                    break;
+                case 0: handleDispatch(payload.t, payload.d); break;
+                case 1: sendHeartbeat(); break;
+                case 10: startHeartbeat(payload.d.heartbeat_interval); identify(); break;
             }
         }
-        
         function handleDispatch(type, data) {
-             if (type === 'READY') {
-                sessionId = data.session_id;
-                updateWsStatus(true);
-                console.log('Gateway Ready. Session ID:', sessionId);
-             } else if (type === 'MESSAGE_CREATE') {
-                if (data.channel_id === currentChannelId) {
-                    renderMessage(data);
-                }
-             }
+             if (type === 'READY') { sessionId = data.session_id; updateWsStatus(true); console.log('Gateway Ready.'); }
+             else if (type === 'MESSAGE_CREATE' && data.channel_id === currentChannelId) { renderMessage(data); }
         }
-        
-        function startHeartbeat(ms) {
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            sendHeartbeat();
-            heartbeatInterval = setInterval(sendHeartbeat, ms);
-        }
-
-        function sendHeartbeat() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ op: 1, d: lastSequence }));
-            }
-        }
-
-        function identify() {
-            ws.send(JSON.stringify({
-                op: 2,
-                d: {
-                    token: userToken,
-                    properties: { os: "Windows", browser: "Chrome", device: "" },
-                    compress: false
-                }
-            }));
-        }
-
+        function startHeartbeat(ms) { if (heartbeatInterval) clearInterval(heartbeatInterval); sendHeartbeat(); heartbeatInterval = setInterval(sendHeartbeat, ms); }
+        function sendHeartbeat() { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ op: 1, d: lastSequence })); }
+        function identify() { ws.send(JSON.stringify({ op: 2, d: { token: userToken, properties: { os: "Windows", browser: "Chrome", device: "" }, compress: false } })); }
         function updateWsStatus(isConnected) {
             const statusIndicator = document.getElementById('ws-status');
             statusIndicator.classList.toggle('bg-green-500', isConnected);
             statusIndicator.classList.toggle('bg-gray-500', !isConnected);
-            statusIndicator.title = isConnected ? 'WebSocket Connected' : 'WebSocket Disconnected';
         }
-
-        document.getElementById('message-input').addEventListener('keypress', e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        function scrollToBottom() {
-            const el = document.getElementById('message-container');
-            el.scrollTop = el.scrollHeight;
-        }
+        
+        document.getElementById('message-input').addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+        function scrollToBottom() { const el = document.getElementById('message-container'); el.scrollTop = el.scrollHeight; }
     </script>
 </body>
 </html>
