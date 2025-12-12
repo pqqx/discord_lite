@@ -85,9 +85,11 @@
                     const data = await response.json();
 
                     if (response.ok) {
-                        if (data.token) {
-                            loginWithToken(data.token);
-                            return;
+                     if (data.token) {
+                        toggleSpinner(false);  
+                        loginWithToken(data.token);
+                        return;
+                      }
                         } else if (data.mfa) {
                             throw new Error('Two-factor authentication is required.');
                         }
