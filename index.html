@@ -528,7 +528,7 @@
         if (Array.isArray(ms) && ms.length > 0) {
             const lastReadId = ms[0].id;
             oldestMessageId = ms[ms.length - 1].id;
-            ms.reverse().forEach(m=>renderMsg(m, false, false));
+            ms.reverse().forEach(m=>renderMsg(m));
             const isScrolledToBottom = (con.scrollHeight - con.scrollTop - con.clientHeight) < 1;
             if(isScrolledToBottom) {
                  await apiRequest(currentAccount.token, `/channels/${ch.id}/messages/${lastReadId}/ack`, 'POST', {});
@@ -538,21 +538,31 @@
         if (ch.guild_id) checkTimeoutStatus(ch.guild_id);
         else setInputState(true);
     }
+    
+    // Message ordering and grouping Fix
     async function loadMoreMessages() {
         if (isLoadingMore || !oldestMessageId || !currentChannel) return;
         isLoadingMore = true;
         const con = document.getElementById('message-container');
         const oldHeight = con.scrollHeight;
-        const {data: m} = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=100&before=${oldestMessageId}`);
-        if (Array.isArray(m) && m.length > 0) {
-            oldestMessageId = m[m.length - 1].id;
-            m.reverse().forEach(msg=>renderMsg(msg, false, true));
+        const { data: messages } = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=100&before=${oldestMessageId}`);
+
+        if (Array.isArray(messages) && messages.length > 0) {
+            oldestMessageId = messages[messages.length - 1].id;
+            // Iterate backwards to prepend oldest messages first, maintaining chronological order
+            for (let i = messages.length - 1; i >= 0; i--) {
+                const m = messages[i];
+                const prevMessage = messages[i + 1]; // The chronologically older message
+                const isGrouped = prevMessage && prevMessage.author.id === m.author.id && (new Date(m.timestamp) - new Date(prevMessage.timestamp)) < 300 * 1000;
+                renderMsg(m, false, true, isGrouped);
+            }
             con.scrollTop = con.scrollHeight - oldHeight;
         } else {
             oldestMessageId = null;
         }
         isLoadingMore = false;
     }
+    
     function scrollToMessage(id) {
         const el = document.getElementById(`message-${id}`);
         if(el) {
@@ -562,12 +572,7 @@
         }
     }
     
-    // Mention Highlight Fix
-    function renderMsg(m, isNew, isPrepended=false) {
-        if (!m.author || !currentAccount) return;
-        const p = document.getElementById('message-container');
-        const isGrouped = !isPrepended && m.author.id === lastMessageInfo.authorId && (new Date(m.timestamp) - new Date(lastMessageInfo.timestamp)) < 300 * 1000;
-        
+    function createMessageElement(m, isGrouped) {
         let originalContent = m.content;
         const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
         let contentHtml = m.content
@@ -633,20 +638,31 @@
                 </div> ${toolbarHtml}`;
         }
         el.querySelector('.message-content-text').dataset.originalContent = originalContent;
+        return el;
+    }
+
+    function renderMsg(m, isNew=false, isPrepended=false, overrideIsGrouped=null) {
+        if (!m.author || !currentAccount) return;
+        const container = document.getElementById('message-container');
+        
+        const isGrouped = overrideIsGrouped !== null ? overrideIsGrouped : (!isPrepended && m.author.id === lastMessageInfo.authorId && (new Date(m.timestamp) - new Date(lastMessageInfo.timestamp)) < 300 * 1000);
+        
+        const el = createMessageElement(m, isGrouped);
+
         if (isPrepended) {
-            p.prepend(el);
+            container.prepend(el);
         } else {
-            p.appendChild(el);
+            container.appendChild(el);
         }
         
         if (!isPrepended) {
-             if (!isGrouped) {
-                 lastMessageInfo = { authorId: m.author.id, timestamp: m.timestamp };
-             } else {
-                 lastMessageInfo.timestamp = m.timestamp;
-             }
+            lastMessageInfo = {
+                authorId: m.author.id,
+                timestamp: m.timestamp
+            };
         }
     }
+
     function renderEmbed(e) {
         const color = e.color ? `#${e.color.toString(16).padStart(6, '0')}` : 'var(--border-color)';
         let fields = e.fields ? e.fields.map(f=>`<div class="${f.inline ? 'inline-block mr-4' : 'block'} min-w-[150px]"><b class="block">${f.name}</b><span>${f.value}</span></div>`).join('') : '';
