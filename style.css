@@ -5,7 +5,7 @@
         --bg-quaternary: #ebebeb;
         --text-primary: #111111;
         --text-secondary: #555555;
-        --text-link: #00b0f4;
+        --text-link: #4f89e2; /* 元の色に戻しました */
         --border-color: #cccccc;
         --button-bg: #5865f2;
         --button-text: #fff;
@@ -27,9 +27,9 @@
         --bg-secondary: #2f3136;
         --bg-tertiary: #202225;
         --bg-quaternary: #292b2f;
-        --text-primary: #dcddde;
+        --text-primary: #e0e0e0; /* 元の色に戻しました */
         --text-secondary: #b9bbbe;
-        --text-link: #00b0f4;
+        --text-link: #58a6ff; /* 元の色に戻しました */
         --border-color: #40444b;
         --button-bg: #5865f2;
         --button-text: #ffffff;
@@ -52,27 +52,29 @@
         position: relative;
     }
 
+    /* サーバーアイコンのサイズを厳格に指定 */
     .server-icon {
         width: 48px;
         height: 48px;
+        min-width: 48px;
+        min-height: 48px;
         flex-shrink: 0;
     }
 
     .server-icon.active img, .server-icon.active div {
-        border-radius: 1rem;
+        border-radius: 30%; /* 少し四角くする */
         transition: border-radius 0.2s ease-in-out;
     }
 
-    /* Ping Dot Visibility Fix */
     .ping-dot {
         position: absolute;
         bottom: -2px;
         right: -2px;
-        width: 16px; /* Larger */
-        height: 16px; /* Larger */
+        width: 16px;
+        height: 16px;
         background-color: #f23f43;
         border-radius: 50%;
-        border: 3px solid var(--ping-border); /* Contrast border */
+        border: 3px solid var(--ping-border);
         z-index: 10;
     }
 
