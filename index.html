@@ -34,6 +34,8 @@
         --message-hover: rgba(0, 0, 0, 0.04);
         --clyde-bg: rgba(88, 101, 242, 0.05);
         --clyde-border: #5865f2;
+        --popup-bg: #ffffff;
+        --popup-highlight: #e0e0e0;
     }
 
     html.dark {
@@ -55,34 +57,40 @@
         --error-bg: rgba(240, 71, 71, 0.1);
         --code-bg: #2f3136;
         --message-hover: rgba(4, 4, 5, 0.07);
+        --popup-bg: #2f3136;
+        --popup-highlight: #40444b;
     }
 
-    html.dark .input-field {
-        color: var(--text-primary);
+    /* 入力欄の視認性修正 */
+    #message-input, .input-field {
+        background-color: var(--bg-tertiary) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-color);
+    }
+    #message-input::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
     }
 
     .server-icon, .channel-item {
         position: relative;
     }
 
-    /* サーバーアイコンの形状制御 */
     .server-icon {
         width: 48px !important;
         height: 48px !important;
         min-width: 48px !important;
         min-height: 48px !important;
-        border-radius: 50% !important; /* デフォルトは丸 */
-        overflow: hidden; /* 中身の画像もこの形で切り取る */
+        border-radius: 50% !important;
+        overflow: hidden;
         cursor: pointer;
         transition: border-radius 0.2s ease, background-color 0.2s ease;
     }
     
-    /* ホバー時とアクティブ時は角丸四角形 */
     .server-icon:hover, .server-icon.active {
         border-radius: 16px !important;
     }
 
-    /* 中身の画像サイズ調整 */
     .server-icon img, .server-icon div {
         width: 100%;
         height: 100%;
@@ -222,6 +230,35 @@
     
     .account-card:hover { transform: translateY(-2px); }
 
+    /* ポップアップメニュー（コマンド・メンション） */
+    .popup-menu {
+        background-color: var(--popup-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 50;
+    }
+    .popup-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9em;
+    }
+    .popup-item:hover, .popup-item.selected {
+        background-color: var(--popup-highlight);
+    }
+    .command-option-badge {
+        background-color: var(--bg-tertiary);
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-size: 0.8em;
+        opacity: 0.8;
+    }
+
 </style>
     </head>
     <body class="font-sans h-screen flex flex-col overflow-hidden bg-gray-200 dark:bg-gray-800 text-[var(--text-primary)]">
@@ -250,7 +287,7 @@
                 
                 <form class="space-y-4" onsubmit="return false;">
                     <div class="text-xs text-[var(--text-secondary)] uppercase font-bold" id="token-label">トークン</div>
-                    <input type="password" id="token-input" class="input-field w-full p-2.5 rounded-md border border-[var(--border-color)] bg-[var(--bg-primary)]" placeholder="MTE...">
+                    <input type="password" id="token-input" class="input-field w-full p-2.5 rounded-md" placeholder="MTE...">
                     
                     <button type="button" id="add-account-button" class="bg-blue-600 hover:bg-blue-700 w-full py-3 rounded-md font-bold text-white flex justify-center items-center transition-colors">
                         <span id="add-account-button-text">ログイン</span>
@@ -302,10 +339,6 @@
                 </div>
                 <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-1" style="background-color: var(--bg-primary);"></div>
                 <div class="flex-shrink-0">
-                    <div id="slash-command-picker" class="hidden p-2 border-t" style="border-color:var(--border-color); background-color: var(--bg-quaternary);">
-                        <b>利用可能なコマンド:</b>
-                        <div class="text-xs opacity-70">コマンド機能は現在開発中です。</div>
-                    </div>
                     <div id="attachment-preview-bar" class="hidden p-2 text-sm border-t items-center justify-between" style="border-color: var(--border-color); background-color: var(--bg-quaternary);">
                         <div>
                             Attaching: <b id="attachment-preview-name"></b>
@@ -316,6 +349,10 @@
                             </svg>
                         </button>
                     </div>
+                    
+                    <!-- コマンド/メンション用ポップアップ -->
+                    <div id="popup-picker" class="hidden absolute bottom-20 left-4 right-4 popup-menu"></div>
+
                     <div class="p-4 border-t flex items-end gap-2" style="border-color: var(--border-color); background-color:var(--bg-secondary);">
                         <input type="file" id="file-input" class="hidden" multiple>
                         <button id="attach-button" class="p-3 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0" title="ファイルを添付">
@@ -354,6 +391,7 @@
     let isLoadingMore = false;
     let attachedFile = null;
     let availableCommands = [];
+    let searchDebounce = null;
     
     const sunIcon = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>`;
     const moonIcon = `<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>`;
@@ -377,7 +415,6 @@
         cancelReply(); cancelAttachment();
     }
 
-    // APIリクエスト処理。401検知を追加
     async function apiRequest(token, path, method = 'GET', body = null, isFormData = false) {
         const o = { method, headers: { 'Authorization': token, 'X-Super-Properties': generateSuperProperties() } };
         if (body) {
@@ -385,10 +422,9 @@
         }
         try {
             const r = await fetch(`${API_BASE}${path}`, o);
-            // 401 Unauthorized 検知
             if (r.status === 401) {
                 console.warn("Token Invalid/Expired");
-                handleSessionInvalid(); // セッション切れ処理
+                handleSessionInvalid(); 
                 return { error: { message: "Unauthorized" }, status: 401 };
             }
             const data = r.status === 204 ? {} : await r.json();
@@ -400,11 +436,9 @@
         }
     }
 
-    // セッション切れ時の処理
     function handleSessionInvalid() {
         if (!currentAccount) return;
         cleanupState();
-        // 特定のユーザーの再ログイン画面を表示
         showLoginScreen(currentAccount);
     }
 
@@ -414,24 +448,13 @@
         token = token.trim().replace(/^"|"$/g, '');
         const b = document.getElementById('add-account-button'), t = document.getElementById('add-account-button-text'), s = document.getElementById('login-spinner');
         t.classList.add('hidden'); s.classList.remove('hidden'); b.disabled = true;
-        
-        // トークン検証
         const result = await apiRequest(token, '/users/@me');
-        
         t.classList.remove('hidden'); s.classList.add('hidden'); b.disabled = false;
-        
         if (result.data && result.data.id) {
             const a = getAccounts();
             const i = a.findIndex(acc => acc.id === result.data.id);
             const n = { ...result.data, token };
-            
-            if (i > -1) {
-                // 既存アカウントの更新（再ログイン時など）
-                a[i] = n;
-            } else {
-                a.push(n);
-            }
-            
+            if (i > -1) { a[i] = n; } else { a.push(n); }
             saveAccounts(a);
             switchAccount(result.data.id);
         } else {
@@ -443,15 +466,11 @@
         cleanupState();
         setActiveAccountId(id);
         const a = getAccounts().find(a => a.id === id);
-        
         if (!a) { showLoginScreen(); return }
         currentAccount = a;
         document.getElementById('token-input').value = '';
-        
-        // とりあえずViewをAppに切り替えるが、loadGuilds等で401が出ればhandleSessionInvalidが呼ばれる
         updateView('app'); 
         renderUserInfo(); renderAccountSwitcher(); loadGuilds();
-        
         setTimeout(connectWS, 100); 
     }
 
@@ -461,14 +480,11 @@
         let a = getAccounts();
         a = a.filter(acc => acc.id !== id);
         saveAccounts(a);
-        
-        // 削除後に画面を更新
         const activeId = getActiveAccountId();
         if (activeId === id || !activeId) {
              localStorage.removeItem('activeAccountId');
-             showLoginScreen(); // 一覧画面へ戻る
+             showLoginScreen();
         } else {
-             // ログイン中ならスイッチャーだけ更新、一覧画面なら一覧更新
              if (!document.getElementById('auth-section').classList.contains('hidden')) {
                  renderSavedAccountsList();
              } else {
@@ -496,7 +512,7 @@
     async function loadGuilds() {
         if (!currentAccount) return;
         const { data: g } = await apiRequest(currentAccount.token, '/users/@me/guilds');
-        if (!g) return; // 401エラーの場合は apiRequest 内で処理される
+        if (!g) return;
         const l = document.getElementById('guild-list');
         l.innerHTML = '';
         g.forEach(s => {
@@ -506,10 +522,8 @@
             el.title = s.name;
             el.onclick = () => loadChannels(s, el);
             if (s.icon) {
-                // 中身の rounded-full を削除し、親要素の overflow:hidden に任せる
                 el.innerHTML = `<img src="https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=128" class="object-cover w-full h-full">`
             } else {
-                // 文字アイコンの場合も同様
                 el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-700 text-white font-bold text-sm">${s.name.replace(/[^\w\s]/gi, '').split(' ').map(w => w[0]).join('').substring(0, 2)}</div>`
             }
             l.appendChild(el);
@@ -525,19 +539,10 @@
         availableCommands = data?.application_commands || [];
     }
 
-    function renderSlashCommands() {
-        const picker = document.getElementById('slash-command-picker');
-        picker.innerHTML = '<b>利用可能なコマンド:</b>';
-        if (availableCommands.length === 0) {
-            picker.innerHTML += '<div class="text-xs opacity-70">このチャンネルで利用できるコマンドはありません。</div>';
-            return;
-        }
-        const list = document.createElement('div');
-        list.className = 'mt-2 space-y-1 text-sm';
-        availableCommands.forEach(cmd => {
-            list.innerHTML += `<div class="p-1"><b>/${cmd.name}</b> <span class="text-xs opacity-60">${cmd.description}</span></div>`;
-        });
-        picker.appendChild(list);
+    async function searchMembers(query, guildId) {
+        if (!guildId || !query) return [];
+        const { data } = await apiRequest(currentAccount.token, `/guilds/${guildId}/members/search?query=${encodeURIComponent(query)}&limit=10`);
+        return data || [];
     }
 
     async function selectChannel(ch) {
@@ -554,13 +559,17 @@
         document.getElementById('channel-name-text').innerHTML = `<span class="text-gray-500 mr-1">#</span><span>${name}</span>`;
         const con = document.getElementById('message-container'); con.innerHTML = '<div class="m-auto text-xs opacity-50">...</div>';
         
-        loadSlashCommands(ch);
+        if (ch.guild_id) {
+            loadSlashCommands(ch);
+            checkTimeoutStatus(ch.guild_id);
+        } else {
+            setInputState(true);
+        }
 
         const res = await apiRequest(currentAccount.token, `/channels/${ch.id}/messages?limit=100`);
         con.innerHTML = '';
 
         if (res.error) {
-            // 401の場合は apiRequest 内でリダイレクトされるが、それ以外のエラー用
             con.innerHTML = `<div class="m-auto flex flex-col items-center justify-center h-full text-center p-4">
                 <div class="text-red-500 font-bold text-lg mb-2">読み込みエラー</div>
                 <div class="text-[var(--text-secondary)]">${res.error.message || '不明なエラーが発生しました'}</div>
@@ -576,7 +585,6 @@
             if ((con.scrollHeight - con.scrollTop - con.clientHeight) < 1) { await apiRequest(currentAccount.token, `/channels/${ch.id}/messages/${lastReadId}/ack`, 'POST', {}); }
             setTimeout(() => con.scrollTop = con.scrollHeight, 0);
         }
-        if (ch.guild_id) checkTimeoutStatus(ch.guild_id); else setInputState(true);
     }
     
     async function loadMoreMessages() { if (isLoadingMore || !oldestMessageId || !currentChannel) return; isLoadingMore = true; const con = document.getElementById('message-container'); const oldHeight = con.scrollHeight; const { data: messages } = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=100&before=${oldestMessageId}`); if (Array.isArray(messages) && messages.length > 0) { oldestMessageId = messages[messages.length - 1].id; const fragment = document.createDocumentFragment(); messages.reverse(); let lastMessageInBatch = { authorId: null, timestamp: null }; messages.forEach(msg => { const isGrouped = msg.author.id === lastMessageInBatch.authorId && (new Date(msg.timestamp) - new Date(lastMessageInBatch.timestamp)) < 300 * 1000; const msgEl = createMessageElement(msg, isGrouped); fragment.appendChild(msgEl); lastMessageInBatch = { authorId: msg.author.id, timestamp: msg.timestamp }; }); con.prepend(fragment); con.scrollTop = con.scrollHeight - oldHeight; } else { oldestMessageId = null; } isLoadingMore = false; }
@@ -586,10 +594,11 @@
         const con = document.getElementById('message-container');
         const el = document.createElement('div');
         el.className = 'clyde-message flex gap-3 pt-1 pb-2';
-        const clydeSrc = '/assets/clyde.png'; 
+        const clydeSrc = '/images/clyde.png'; 
+        const fallbackSrc = 'https://cdn.discordapp.com/app-assets/1089635038827593848/1089635038827593848.png';
 
         el.innerHTML = `
-            <img src="${clydeSrc}" class="w-10 h-10 rounded-full mt-0.5 flex-shrink-0 object-contain">
+            <img src="${clydeSrc}" onerror="this.src='${fallbackSrc}'" class="w-10 h-10 rounded-full mt-0.5 flex-shrink-0 object-contain">
             <div class="flex-1 min-w-0">
                 <div>
                     <b class="text-sm">Clyde</b>
@@ -607,12 +616,24 @@
         con.scrollTop = con.scrollHeight;
     }
 
+    // Markdown Parser Fix
     function parseMarkdown(text) {
         if (!text) return '';
+        // HTMLエスケープ
         let html = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        
+        // コードブロックを退避
         const codeBlocks = [];
-        html = html.replace(/```(?:[\w]*\n)?([\s\S]*?)```/g, (match, code) => { codeBlocks.push(`<span class="md-code-block">${code}</span>`); return `__CODE_BLOCK_${codeBlocks.length - 1}__`; });
-        html = html.replace(/`([^`]+)`/g, (match, code) => { codeBlocks.push(`<span class="md-inline-code">${code}</span>`); return `__CODE_BLOCK_${codeBlocks.length - 1}__`; });
+        html = html.replace(/```(?:[\w]*\n)?([\s\S]*?)```/g, (match, code) => {
+            codeBlocks.push(`<span class="md-code-block">${code}</span>`);
+            return `__CODE_BLOCK_${codeBlocks.length - 1}__`; 
+        });
+        html = html.replace(/`([^`]+)`/g, (match, code) => {
+            codeBlocks.push(`<span class="md-inline-code">${code}</span>`);
+            return `__CODE_BLOCK_${codeBlocks.length - 1}__`; 
+        });
+
+        // リンク、装飾など
         html = html.replace(/\[([^\]]*)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" class="text-[var(--text-link)] hover:underline">$1</a>');
         html = html.replace(/^### (.*$)/gm, '<div class="md-header-3">$1</div>').replace(/^## (.*$)/gm, '<div class="md-header-2">$1</div>').replace(/^# (.*$)/gm, '<div class="md-header-1">$1</div>');
         html = html.replace(/^> (.*$)/gm, '<div class="md-quote">$1</div>').replace(/^>>> ([\s\S]*)/gm, '<div class="md-quote">$1</div>');
@@ -621,6 +642,8 @@
         html = html.replace(/&lt;@!?(\d+)&gt;/g, (_, id) => `<span class="mention">@${id}</span>`);
         html = html.replace(/&lt;a?:(\w+):(\d+)&gt;/g, (_, n, i) => `<img src="https://cdn.discordapp.com/emojis/${i}.webp?size=48&quality=lossless" alt=":${n}:" class="inline h-6 w-6">`);
         html = html.replace(/\n/g, '<br>');
+
+        // コードブロックを復元 (バグ修正箇所)
         html = html.replace(/__CODE_BLOCK_(\d+)__/g, (match, index) => codeBlocks[index]);
         return html;
     }
@@ -652,7 +675,6 @@
         if (res.error) {
             input.value = content; handleInput();
             renderClydeError(res.error.message || '不明なエラーが発生しました');
-            console.error("Send Error:", res.error);
         }
     }
     
@@ -671,7 +693,6 @@
         if (res.error) {
             if(originalContent) { input.value = originalContent; handleInput(); }
             renderClydeError(res.error.message || 'ファイルの送信に失敗しました');
-            console.error("File Send Error", res.error); 
         }
     }
 
@@ -731,7 +752,99 @@
     function updatePingDots() { document.querySelectorAll('.ping-dot').forEach(d=>d.remove()); Object.keys(pingCounts).forEach(id=>{ const el = document.getElementById(`channel-${id}`); if (el && !el.querySelector('.ping-dot')) el.insertAdjacentHTML('beforeend', '<div class="ping-dot"></div>'); const {guildId} = pingCounts[id]; if (guildId) { const gEl = document.getElementById(`guild-${guildId}`); if (gEl && !gEl.querySelector('.ping-dot')) gEl.insertAdjacentHTML('beforeend', '<div class="ping-dot"></div>'); } }); }
     async function checkTimeoutStatus(guildId) { if (timeoutInterval) clearInterval(timeoutInterval); const { data: m } = await apiRequest(currentAccount.token, `/guilds/${guildId}/members/${currentAccount.id}`); const end = m && m.communication_disabled_until ? new Date(m.communication_disabled_until) : null; if (end && end > new Date()) { const update = () => { const now = new Date(), diff = (end - now) / 1000; if (diff <= 0) { setInputState(true); clearInterval(timeoutInterval); } else { const d = Math.floor(diff/86400), h = Math.floor(diff/3600)%24, m = Math.floor(diff/60)%60, s = Math.floor(diff%60); setInputState(false, `タイムアウト中: ${d>0?`${d}d `:''}${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`); } }; update(); timeoutInterval = setInterval(update, 1000); } else setInputState(true); }
     function setInputState(enabled, placeholder="メッセージを送信") { const i = document.getElementById('message-input'), s = document.getElementById('send-button'); i.disabled = !enabled; i.placeholder = placeholder; s.disabled = !enabled || (i.value.trim() === '' && !attachedFile); }
-    function handleInput() { const i = document.getElementById('message-input'), c = document.getElementById('char-counter'), p = document.getElementById('slash-command-picker'); const l = i.value.length; i.style.height = 'auto'; i.style.height = (i.scrollHeight) + 'px'; setInputState(!i.disabled); c.textContent = l > 0 ? `${l}/2000` : ''; c.style.color = l > 2000 ? 'red' : ''; if (i.value.startsWith('/')) { p.classList.remove('hidden'); renderSlashCommands(); } else p.classList.add('hidden'); }
+    
+    // 入力制御、スラッシュコマンド、メンション
+    function handleInput() {
+        const i = document.getElementById('message-input');
+        const c = document.getElementById('char-counter');
+        const popup = document.getElementById('popup-picker');
+        
+        // 自動高さ
+        i.style.height = 'auto';
+        i.style.height = (i.scrollHeight) + 'px';
+        
+        const val = i.value;
+        const l = val.length;
+        c.textContent = l > 0 ? `${l}/2000` : ''; 
+        c.style.color = l > 2000 ? 'red' : '';
+        setInputState(!i.disabled);
+
+        // スラッシュコマンド
+        if (val.startsWith('/')) {
+            const query = val.substring(1).toLowerCase();
+            const filtered = availableCommands.filter(cmd => cmd.name.startsWith(query));
+            renderPopup(filtered, 'command');
+        } 
+        // メンション
+        else {
+            const lastAt = val.lastIndexOf('@');
+            if (lastAt !== -1 && currentChannel?.guild_id) {
+                // カーソル位置が@の後ろにあるか確認
+                const cursor = i.selectionEnd;
+                if (cursor > lastAt) {
+                    const query = val.substring(lastAt + 1, cursor);
+                    // 空白を含まない直近の入力の場合のみ検索
+                    if (!query.includes(' ')) {
+                        // 検索実行 (デバウンス)
+                        if (searchDebounce) clearTimeout(searchDebounce);
+                        searchDebounce = setTimeout(async () => {
+                            const members = await searchMembers(query, currentChannel.guild_id);
+                            renderPopup(members, 'mention', lastAt);
+                        }, 300);
+                        return;
+                    }
+                }
+            }
+            popup.classList.add('hidden');
+        }
+    }
+
+    function renderPopup(items, type, atIndex = 0) {
+        const popup = document.getElementById('popup-picker');
+        popup.innerHTML = '';
+        
+        if (!items || items.length === 0) {
+            popup.classList.add('hidden');
+            return;
+        }
+
+        popup.classList.remove('hidden');
+        
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'popup-item';
+            
+            if (type === 'command') {
+                // コマンド表示
+                let optionsHtml = '';
+                if(item.options) {
+                    optionsHtml = item.options.map(o => `<span class="command-option-badge">${o.name}</span>`).join(' ');
+                }
+                div.innerHTML = `<b>/${item.name}</b> ${optionsHtml} <span class="text-xs opacity-60 truncate flex-1">${item.description}</span>`;
+                div.onclick = () => {
+                    const i = document.getElementById('message-input');
+                    i.value = `/${item.name} `;
+                    i.focus();
+                    popup.classList.add('hidden');
+                };
+            } else {
+                // メンション表示
+                const u = item.user;
+                const av = u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=32` : `https://cdn.discordapp.com/embed/avatars/${u.discriminator % 5}.png`;
+                div.innerHTML = `<img src="${av}" class="w-6 h-6 rounded-full"> <b>${item.nick || u.global_name || u.username}</b> <span class="text-xs opacity-60">@${u.username}</span>`;
+                div.onclick = () => {
+                    const i = document.getElementById('message-input');
+                    const before = i.value.substring(0, atIndex);
+                    const after = i.value.substring(i.selectionEnd);
+                    // 挿入: <@ID> 形式
+                    i.value = `${before}<@${u.id}> ${after}`;
+                    i.focus();
+                    popup.classList.add('hidden');
+                };
+            }
+            popup.appendChild(div);
+        });
+    }
     
     // View Management Logic
     function updateView(state) { 
@@ -755,16 +868,13 @@
         const accounts = getAccounts();
 
         if (reloginAccount) {
-            // 再ログインモード
             showTokenInput(reloginAccount);
         } else if (accounts.length > 0) {
-            // アカウント選択モード
             document.getElementById('account-selection-view').classList.remove('hidden');
             document.getElementById('account-selection-view').classList.add('flex');
             document.getElementById('token-input-view').classList.add('hidden');
             renderSavedAccountsList();
         } else {
-            // 初期状態（アカウントなし）
             showTokenInput(null);
         }
     }
@@ -773,12 +883,7 @@
         const container = document.getElementById('saved-accounts-list');
         const accounts = getAccounts();
         container.innerHTML = '';
-        
-        if(accounts.length === 0) {
-            showTokenInput(null);
-            return;
-        }
-
+        if(accounts.length === 0) { showTokenInput(null); return; }
         accounts.forEach(acc => {
             const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`;
             const el = document.createElement('div');
@@ -793,11 +898,7 @@
                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
                 </div>
             `;
-            // アカウントクリック時はログイン試行（Tokenが生きてるか確認 -> 死んでたら再ログイン画面へ）
-            el.onclick = (e) => {
-                 if(e.target.closest('svg')) return; // 削除ボタン回避
-                 switchAccount(acc.id);
-            };
+            el.onclick = (e) => { if(e.target.closest('svg')) return; switchAccount(acc.id); };
             container.appendChild(el);
         });
     }
@@ -816,38 +917,23 @@
         const title = document.getElementById('auth-title');
 
         if (account) {
-            // 再ログイン表示
-            reloginInfo.classList.remove('hidden');
-            reloginInfo.classList.add('flex');
+            reloginInfo.classList.remove('hidden'); reloginInfo.classList.add('flex');
             title.innerText = "再ログイン";
-            
             const av = account.avatar ? `https://cdn.discordapp.com/avatars/${account.id}/${account.avatar}.png?size=128` : `https://cdn.discordapp.com/embed/avatars/${account.discriminator % 5}.png`;
             document.getElementById('relogin-avatar').src = av;
             document.getElementById('relogin-name').innerText = account.global_name || account.username;
             document.getElementById('relogin-username').innerText = account.username;
-            
             tokenInput.placeholder = "新しいトークンを入力してください";
             document.getElementById('add-account-button-text').innerText = "ログイン";
-            
-            backBtn.classList.add('hidden'); // 強制再ログイン時は戻らせない（UX判断）
-            
-            // 内部的には追加ではなく更新になるように、currentAccountを設定しておく
+            backBtn.classList.add('hidden');
             currentAccount = account; 
         } else {
-            // 新規追加表示
-            reloginInfo.classList.add('hidden');
-            reloginInfo.classList.remove('flex');
+            reloginInfo.classList.add('hidden'); reloginInfo.classList.remove('flex');
             title.innerText = "アカウントを追加";
             tokenInput.placeholder = "Discord Token";
             document.getElementById('add-account-button-text').innerText = "追加";
-            
-            if (getAccounts().length > 0) {
-                backBtn.classList.remove('hidden');
-            } else {
-                backBtn.classList.add('hidden');
-            }
+            if (getAccounts().length > 0) backBtn.classList.remove('hidden'); else backBtn.classList.add('hidden');
         }
-        
         document.getElementById('login-error').innerText = "";
         tokenInput.value = "";
         tokenInput.focus();
@@ -862,15 +948,7 @@
         applyTheme(); 
         const a = getAccounts(); 
         let i = getActiveAccountId();
-        
-        // 自動ログインロジック：
-        // 1. アクティブなIDがあるなら、それを試行（switchAccount内で401なら再ログイン画面へ）
-        // 2. なければ、アカウント一覧画面を表示（showLoginScreen）
-        if (a.length > 0 && a.find(acc => acc.id === i)) {
-             switchAccount(i);
-        } else {
-             showLoginScreen();
-        }
+        if (a.length > 0 && a.find(acc => acc.id === i)) { switchAccount(i); } else { showLoginScreen(); }
 
         document.getElementById('add-account-button').onclick = () => addAccount(document.getElementById('token-input').value);
         document.getElementById('dm-icon').onclick = e => loadDms(e.currentTarget);
@@ -887,12 +965,16 @@
         document.getElementById('theme-toggle-btn').addEventListener('click', () => { document.documentElement.classList.toggle('dark'); localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light'); applyTheme(); });
         document.getElementById('user-info-panel').onclick = () => document.getElementById('account-switcher').classList.toggle('hidden');
         document.getElementById('add-account-switcher-btn').onclick = () => { document.getElementById('account-switcher').classList.add('hidden'); showLoginScreen(); };
-        
-        // ログイン画面周りのイベント
         document.getElementById('show-add-account-form-btn').onclick = () => showTokenInput(null);
-        document.getElementById('back-to-accounts-btn').onclick = () => showLoginScreen(); // 一覧に戻る
+        document.getElementById('back-to-accounts-btn').onclick = () => showLoginScreen();
 
         window.addEventListener('resize', handleResize);
+        document.addEventListener('click', (e) => {
+            // ポップアップの外側をクリックしたら閉じる
+            if (!e.target.closest('#popup-picker') && !e.target.closest('#message-input')) {
+                document.getElementById('popup-picker').classList.add('hidden');
+            }
+        });
     });
 </script>
     </body>
