@@ -587,10 +587,9 @@
         const el = document.createElement('div');
         el.className = 'clyde-message flex gap-3 pt-1 pb-2';
         const clydeSrc = '/assets/clyde.png'; 
-        const fallbackSrc = 'https://cdn.discordapp.com/app-assets/1089635038827593848/1089635038827593848.png';
 
         el.innerHTML = `
-            <img src="${clydeSrc}" onerror="this.src='${fallbackSrc}'" class="w-10 h-10 rounded-full mt-0.5 flex-shrink-0 object-contain">
+            <img src="${clydeSrc}" class="w-10 h-10 rounded-full mt-0.5 flex-shrink-0 object-contain">
             <div class="flex-1 min-w-0">
                 <div>
                     <b class="text-sm">Clyde</b>
