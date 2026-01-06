@@ -1077,6 +1077,73 @@ function switchSettingsTab(tabName) {
     document.getElementById(`tab-content-${tabName}`).classList.remove('hidden');
 }
 
+async function loadMoreMessages() {
+    // 読み込み中、またはこれ以上過去ログがない、またはチャンネル未選択なら終了
+    if (isLoadingMore || !oldestMessageId || !currentChannel) return;
+
+    // スクロール位置が上端付近でないなら何もしない（誤爆防止）
+    const container = document.getElementById('message-container');
+    if (container.scrollTop > 50) return;
+
+    isLoadingMore = true;
+    const oldHeight = container.scrollHeight; // ロード前の高さを記録
+
+    // APIリクエスト（limit=50件）
+    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=50&before=${oldestMessageId}`);
+    
+    if (res.data && res.data.length > 0) {
+        const messages = res.data;
+        // 読み込んだ中で一番古いIDを記録
+        oldestMessageId = messages[messages.length - 1].id;
+
+        const fragment = document.createDocumentFragment();
+        // APIは「新しい→古い」順で来るので、逆順（古い→新しい）にして上から描画できるようにする
+        const arr = messages.reverse();
+
+        let lastBatchAuthId = null;
+        let lastBatchTimestamp = 0;
+
+        arr.forEach((m, index) => {
+            if (plugins.messageLogger) messageStore[m.id] = m;
+            
+            let isGrouped = false;
+
+            // バッチ内でのグループ化判定
+            // (1) 1つ前のメッセージがある (2) 同じ作者 (3) 返信/Webhookでない (4) 5分以内
+            if (index > 0) {
+                 const timeDiff = new Date(m.timestamp).getTime() - lastBatchTimestamp;
+                 if (lastBatchAuthId === m.author.id && 
+                    !m.referenced_message && !m.webhook_id && 
+                    timeDiff < 5 * 60 * 1000) {
+                     isGrouped = true;
+                 }
+            }
+
+            // 【重要】ここでさっき直した createMessageElement を呼ぶ
+            const el = createMessageElement(m, isGrouped);
+            
+            el.dataset.authorId = m.author.id;
+            el.dataset.timestamp = m.timestamp;
+            
+            fragment.appendChild(el);
+
+            lastBatchAuthId = m.author.id;
+            lastBatchTimestamp = new Date(m.timestamp).getTime();
+        });
+
+        container.prepend(fragment);
+        
+        // スクロール位置の維持補正
+        // (新しい全体の高さ - 古い高さ) 分だけスクロールしないと、見た目が一番上に飛んでしまう
+        container.scrollTop = container.scrollHeight - oldHeight;
+    } else {
+        // もうデータがない場合
+        oldestMessageId = null;
+    }
+    
+    isLoadingMore = false;
+}
+
 function renderPluginList() {
     const list = document.getElementById('plugin-list'); 
     list.innerHTML = '';
