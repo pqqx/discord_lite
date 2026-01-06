@@ -679,6 +679,12 @@ function renderSettingsModal() {
 
 // Helper Wrappers
 function startReply(m) { replyingTo = { messageId: m.id, author: m.author }; document.getElementById('reply-bar').classList.remove('hidden'); document.getElementById('reply-username').innerText = m.author.global_name || m.author.username; document.getElementById('message-input').focus(); }
+function cancelAttachment() { 
+    attachedFile = null; 
+    document.getElementById('file-input').value = ""; 
+    document.getElementById('attachment-preview-bar').classList.add('hidden'); 
+    handleInput(); 
+}
 function cancelReply() { replyingTo = null; document.getElementById('reply-bar').classList.add('hidden'); }
 async function deleteMessage(id, e) {
     if (e.shiftKey || confirm("メッセージを削除しますか？")) { await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'DELETE'); }
