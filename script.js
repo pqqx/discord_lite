@@ -655,15 +655,22 @@ function createMessageElement(m, isGrouped) {
          headerAddon += '<span class="text-red-500 text-[10px] font-bold mr-1">[DELETED]</span>';
     }
     
-    // Grouped (Simplified, left-aligned correctly via flex)
-    if (isGrouped) {
+ if (isGrouped) {
         const editedTag = m.edited_timestamp ? '<span class="edited-tag">(edited)</span>' : '';
-        // Align text with the non-grouped version. Non-grouped has 40px avatar + 16px mr = 56px offset visually.
-        // We simulate this by simple left padding/margin on text
+        // 修正前: w-full pl-[56px] ... で固定幅パディングを使用していた
+        // el.innerHTML = `${toolbar} <div class="w-full pl-[56px] message-content-text relative">${historyHtml}${contentHtml}${editedTag}</div>`;
+        
+        // 修正案: 通常メッセージと同じFlex構造を使い、左側（アイコン部分）を透明な空箱にして幅を合わせる
+        // mr-4 はTailwindの 1rem。 style="width: 40px" でアイコンと同じ幅を確保。
         el.innerHTML = `
             ${toolbar}
-            <div class="pl-[56px] w-full message-content-text relative">
-                ${historyHtml}${contentHtml}${editedTag}
+            <div class="flex mt-0.5 items-start w-full">
+                <div class="mr-4 flex-shrink-0" style="width: 40px;"></div> <!-- アイコンの代わりの透明なスペース -->
+                <div class="flex-1 min-w-0">
+                    <div class="message-content-text relative">
+                        ${historyHtml}${contentHtml}${editedTag}
+                    </div>
+                </div>
             </div>`;
     } 
     else {
