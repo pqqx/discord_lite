@@ -277,7 +277,12 @@
     let memberDebounce = null;
     let maxCharCount = 2000;
     
-    const plugins = JSON.parse(localStorage.getItem('plugins')) || { showMeYourName: false, sendSeconds: false, messageLogger: false };
+    // Plugins
+    const plugins = JSON.parse(localStorage.getItem('plugins')) || {
+        showMeYourName: false,
+        sendSeconds: false,
+        messageLogger: false
+    };
     let messageStore = {}; 
 
     const sunIcon = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>`;
@@ -320,18 +325,25 @@
         }
     }
 
+    // 古い形式(localStorage.token / localStorage.tokens)を検出し移行する
     async function migrateOldData() {
         const oldToken = localStorage.getItem('token');
         const oldTokensMap = localStorage.getItem('tokens');
         let tokensToMigrate = [];
-        if (oldToken && oldToken.trim().length > 0) tokensToMigrate.push(oldToken.replace(/^"|"$/g, ''));
+
+        if (oldToken && oldToken.trim().length > 0) {
+            tokensToMigrate.push(oldToken.replace(/^"|"$/g, ''));
+        }
         if (oldTokensMap) {
             try {
                 const parsed = JSON.parse(oldTokensMap);
                 Object.values(parsed).forEach(t => tokensToMigrate.push(t.replace(/^"|"$/g, '')));
             } catch(e) {}
         }
+
+        // 重複排除
         tokensToMigrate = [...new Set(tokensToMigrate)];
+
         if (tokensToMigrate.length === 0) return false;
 
         document.getElementById('auth-section').classList.remove('hidden');
@@ -341,22 +353,37 @@
 
         let accounts = getAccounts();
         let migratedCount = 0;
+
         for (const t of tokensToMigrate) {
+            // 既存チェック
             if (accounts.some(a => a.token === t)) continue;
+            
+            // APIで検証
             const res = await apiRequest(t, '/users/@me');
-            if (res.data && res.data.id) { accounts.push({ ...res.data, token: t }); migratedCount++; }
+            if (res.data && res.data.id) {
+                accounts.push({ ...res.data, token: t });
+                migratedCount++;
+            }
         }
+
         if (migratedCount > 0) {
             saveAccounts(accounts);
             localStorage.removeItem('token');
             localStorage.removeItem('tokens');
         }
+
         document.getElementById('migration-view').classList.add('hidden');
         document.getElementById('migration-view').classList.remove('flex');
+        
+        // 移行完了、または有効なトークンがなかった場合、通常のフローに戻る
         return migratedCount > 0;
     }
 
-    function handleSessionInvalid() { if (!currentAccount) return; cleanupState(); showLoginScreen(currentAccount); }
+    function handleSessionInvalid() { 
+        if (!currentAccount) return; 
+        cleanupState(); 
+        showLoginScreen(currentAccount); 
+    }
 
     async function addAccount(token) {
         document.getElementById('login-error').innerText = "";
@@ -381,6 +408,8 @@
         maxCharCount = (currentAccount.premium_type === 2) ? 4000 : 2000;
         document.getElementById('token-input').value = '';
         updateView('app'); renderUserInfo(); renderAccountSwitcher(); loadGuilds();
+        
+        // WebSocket接続
         setTimeout(connectWS, 100); 
     }
 
@@ -396,6 +425,15 @@
         const p = document.getElementById('user-info-panel');
         const a = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${currentAccount.discriminator % 5}.png`;
         p.innerHTML = `<img src="${a}" class="w-10 h-10 rounded-full"><div class="flex-1 truncate"><b class="text-sm truncate">${currentAccount.global_name || currentAccount.username}</b><div class="text-xs opacity-60 truncate">@${currentAccount.username}</div></div>`;
+    }
+
+    function renderAccountSwitcher() {
+        const l = document.getElementById('account-list'), a = getAccounts(), i = getActiveAccountId();
+        l.innerHTML = a.map(acc => {
+            const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`;
+            const isA = acc.id === i;
+            return `<div class="flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-gray-500/20" onclick="switchAccount('${acc.id}')"><img src="${av}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${acc.global_name || acc.username}</span> ${isA ? '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>' : ''} <div onclick="deleteAccount('${acc.id}',event)" title="削除" class="p-1 rounded-full text-red-500 hover:bg-red-500/20"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg></div></div>`;
+        }).join('');
     }
 
     function renderSettingsModal() {
