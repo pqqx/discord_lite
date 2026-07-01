@@ -5,200 +5,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Discord Lite</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class'
-        }
-    </script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
-:root {
-    --bg-primary: #f5f5f5;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #e3e5e8;
-    --bg-quaternary: #ebedef;
-    --text-primary: #060607;
-    --text-secondary: #5e6772;
-    --text-link: #00b0f4;
-    --border-color: #d1d5db;
-    --button-bg: #5865f2;
-    --button-text: #fff;
-    --hover-bg: #ebedef;
-    --active-bg: #dadce0;
-    --mention-bg: rgba(88, 101, 242, 0.1);
-    --mention-fg: #5865f2;
-    --mention-bg-highlight: rgba(250, 233, 105, 0.1);
-    --mention-border-highlight: #faa81a;
-    --error-bg: rgba(237, 66, 69, 0.05);
-    --error-border: #ed4245;
-    --code-bg: #f2f3f5;
-    --message-hover: rgba(6, 6, 7, 0.02);
-    --popup-bg: #ffffff;
-    --popup-highlight: #e3e5e8;
-    --deleted-bg: rgba(237, 66, 69, 0.05);
-    --reply-spine-color: #c4c9ce; 
-    --folder-bg: rgba(88, 101, 242, 0.2);
-}
-
-html.dark {
-    --bg-primary: #313338;
-    --bg-secondary: #2b2d31;
-    --bg-tertiary: #1e1f22;
-    --bg-quaternary: #111214;
-    --text-primary: #f2f3f5;
-    --text-secondary: #949ba4;
-    --text-link: #00b0f4;
-    --border-color: #26272d;
-    --button-bg: #5865f2;
-    --button-text: #ffffff;
-    --hover-bg: #35373c;
-    --active-bg: #3f4147;
-    --mention-bg: rgba(88, 101, 242, 0.15);
-    --mention-fg: #c9cdfb;
-    --mention-bg-highlight: rgba(250, 166, 26, 0.1); 
-    --error-bg: rgba(240, 71, 71, 0.1);
-    --code-bg: #2b2d31;
-    --message-hover: rgba(2, 2, 2, 0.06);
-    --popup-bg: #2b2d31;
-    --popup-highlight: #35373c;
-    --deleted-bg: rgba(240, 71, 71, 0.1);
-    --reply-spine-color: #4f545c; 
-    --folder-bg: rgba(88, 101, 242, 0.2);
-}
-
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background-color: var(--bg-secondary); }
-::-webkit-scrollbar-thumb { background-color: var(--bg-quaternary); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background-color: var(--text-secondary); }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-#message-input::placeholder { color: var(--text-secondary); opacity: 0.7; }
-#message-input, .input-field { outline: none; border: none; }
-
-#message-container { overflow-anchor: none; }
-
-#drag-overlay {
-    pointer-events: none; opacity: 0; transition: opacity 0.2s;
-    background: rgba(88, 101, 242, 0.8); border: 4px dashed white;
-}
-.dragging #drag-overlay { opacity: 1; pointer-events: auto; }
-
-.server-icon {
-    width: 48px; height: 48px; min-height: 48px; border-radius: 50%;
-    cursor: pointer; transition: all 0.2s cubic-bezier(0,0,0,1);
-    background-color: var(--bg-primary); display: flex; align-items: center; justify-content: center;
-    position: relative; overflow: visible; z-index: 10;
-}
-.server-icon img { border-radius: 50%; transition: border-radius 0.2s; }
-.server-icon:hover, .server-icon.active { border-radius: 16px; }
-.server-icon:hover img, .server-icon.active img { border-radius: 16px; }
-.server-icon.active::before {
-    content: ''; position: absolute; left: -14px; top: 10px; height: 28px; width: 8px;
-    background-color: var(--text-primary); border-radius: 0 4px 4px 0; transition: height 0.2s;
-}
-
-.folder-closed {
-    width: 48px; height: 48px; border-radius: 24px; background-color: var(--folder-bg); cursor: pointer;
-    display: flex; flex-wrap: wrap; padding: 10px; gap: 4px; align-items: center; justify-content: center; transition: all 0.2s; z-index: 10;
-}
-.folder-closed:hover { border-radius: 16px; background-color: var(--button-bg); }
-.folder-icon-thumb { width: 10px; height: 10px; object-fit: cover; border-radius: 50%; background: var(--bg-secondary); }
-
-.folder-opened {
-    background-color: transparent !important; color: var(--text-secondary); width: 48px; height: 48px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; padding: 4px;
-}
-
-.ping-dot {
-    position: absolute; bottom: -2px; right: -2px; width: 16px; height: 16px; background-color: #ed4245; border-radius: 50%; border: 4px solid var(--bg-tertiary); z-index: 30; pointer-events: none;
-}
-.channel-item.active { background-color: var(--active-bg); color: var(--text-primary); }
-.channel-item:hover:not(.active) { background-color: var(--hover-bg); color: var(--text-primary); }
-
-.avatar-container { width: 40px; height: 40px; position: relative; flex-shrink: 0; }
-.avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: relative; z-index: 10; }
-.avatar-decoration { 
-    position: absolute; top: 50%; left: 50%; width: 128%; height: 128%; 
-    transform: translate(-50%, -50%); pointer-events: none; z-index: 20; object-fit: contain;
-}
-
-.message-group { position: relative; margin-top: 1.8rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
-.message-group.grouped { margin-top: 0.125rem; } 
-.message-group:hover { background-color: var(--message-hover); }
-.message-group:hover .message-toolbar { opacity: 1; transform: translateY(0); pointer-events: auto; }
-.message-toolbar { opacity: 0; pointer-events: none; transform: translateY(-4px); transition: all 0.1s; border: 1px solid var(--border-color); }
-
-.message-content-text { width: 100%; user-select: text; overflow-wrap: break-word; word-break: break-word; line-height: 1.375rem; color: var(--text-primary); }
-.message-sending { opacity: 0.5; } .message-failed .message-content-text { color: #ed4245; }
-
-.message-mentioned { background-color: var(--mention-bg-highlight); position: relative; }
-.message-mentioned::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background-color: var(--mention-border-highlight); }
-.deleted-text { color: #ed4245; }
-.history-line { font-size: 0.9em; color: var(--text-secondary); opacity: 0.8; text-decoration: line-through; display: block; margin-bottom: 2px; }
-.edited-tag { font-size: 0.625rem; color: var(--text-secondary); margin-left: 4px; user-select: none; }
-
-.reply-spine {
-    position: absolute; top: 50%; left: -32px; width: 28px; height: 12px;
-    border-left: 2px solid var(--reply-spine-color); border-top: 2px solid var(--reply-spine-color);
-    border-top-left-radius: 6px; margin-top: -6px; pointer-events: none; z-index: 0;
-}
-
-.settings-tab-item { padding: 6px 12px; border-radius: 4px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
-.settings-tab-item:hover { background-color: var(--hover-bg); color: var(--text-primary); }
-.settings-tab-item.active { background-color: var(--active-bg); color: var(--text-primary); cursor: default; }
-.theme-card { width: 140px; height: 90px; border-radius: 8px; cursor: pointer; position: relative; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
-.theme-card:hover { transform: translateY(-2px); }
-.theme-card-check { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background-color: white; border: 3px solid var(--text-secondary); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-
-.category-arrow { transition: transform 0.2s; } .category-collapsed .category-arrow { transform: rotate(-90deg); }
-.channel-collapsed { display: none !important; }
-
-.switch { position: relative; display: inline-block; width: 40px; height: 24px; } .switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #80848e; transition: .4s; border-radius: 24px; }
-.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-input:checked + .slider { background-color: #3ba55c; } input:checked + .slider:before { transform: translateX(16px); }
-.plugin-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--bg-quaternary); } .plugin-item:last-child { border-bottom: none; }
+:root{--bg-primary:#f5f5f5;--bg-secondary:#ffffff;--bg-tertiary:#e3e5e8;--bg-quaternary:#ebedef;--text-primary:#060607;--text-secondary:#5e6772;--text-link:#00b0f4;--border-color:#d1d5db;--button-bg:#5865f2;--button-text:#fff;--hover-bg:#ebedef;--active-bg:#dadce0;--mention-bg:rgba(88,101,242,.1);--mention-fg:#5865f2;--mention-bg-highlight:rgba(250,233,105,.1);--mention-border-highlight:#faa81a;--error-bg:rgba(237,66,69,.05);--error-border:#ed4245;--code-bg:#f2f3f5;--message-hover:rgba(6,6,7,.02);--popup-bg:#ffffff;--popup-highlight:#e3e5e8;--deleted-bg:rgba(237,66,69,.05);--reply-spine-color:#c4c9ce;--folder-bg:rgba(88,101,242,.2)}
+html.dark{--bg-primary:#313338;--bg-secondary:#2b2d31;--bg-tertiary:#1e1f22;--bg-quaternary:#111214;--text-primary:#f2f3f5;--text-secondary:#949ba4;--text-link:#00b0f4;--border-color:#26272d;--button-bg:#5865f2;--button-text:#ffffff;--hover-bg:#35373c;--active-bg:#3f4147;--mention-bg:rgba(88,101,242,.15);--mention-fg:#c9cdfb;--mention-bg-highlight:rgba(250,166,26,.1);--error-bg:rgba(240,71,71,.1);--code-bg:#2b2d31;--message-hover:rgba(2,2,2,.06);--popup-bg:#2b2d31;--popup-highlight:#35373c;--deleted-bg:rgba(240,71,71,.1);--reply-spine-color:#4f545c;--folder-bg:rgba(88,101,242,.2)}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background-color:var(--bg-secondary)}::-webkit-scrollbar-thumb{background-color:var(--bg-quaternary);border-radius:4px}::-webkit-scrollbar-thumb:hover{background-color:var(--text-secondary)}.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+#message-input::placeholder{color:var(--text-secondary);opacity:.7}#message-input,.input-field{outline:0;border:0}#message-container{overflow-anchor:none}
+#drag-overlay{pointer-events:none;opacity:0;transition:opacity .2s;background:rgba(88,101,242,.8);border:4px dashed white}.dragging #drag-overlay{opacity:1;pointer-events:auto}
+.server-icon{width:48px;height:48px;min-height:48px;border-radius:50%;cursor:pointer;transition:all .2s cubic-bezier(0,0,0,1);background-color:var(--bg-primary);display:flex;align-items:center;justify-content:center;position:relative;overflow:visible;z-index:10}.server-icon img{border-radius:50%;transition:border-radius .2s}.server-icon:hover,.server-icon.active{border-radius:16px}.server-icon:hover img,.server-icon.active img{border-radius:16px}.server-icon.active::before{content:'';position:absolute;left:-14px;top:10px;height:28px;width:8px;background-color:var(--text-primary);border-radius:0 4px 4px 0;transition:height .2s}
+.folder-closed{width:48px;height:48px;border-radius:24px;background-color:var(--folder-bg);cursor:pointer;display:flex;flex-wrap:wrap;padding:10px;gap:4px;align-items:center;justify-content:center;transition:all .2s;z-index:10}.folder-closed:hover{border-radius:16px;background-color:var(--button-bg)}.folder-icon-thumb{width:10px;height:10px;object-fit:cover;border-radius:50%;background:var(--bg-secondary)}
+.folder-opened{background-color:transparent!important;color:var(--text-secondary);width:48px;height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:4px}
+.ping-dot{position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;background-color:#ed4245;border-radius:50%;border:4px solid var(--bg-tertiary);z-index:30;pointer-events:none}
+.channel-item.active{background-color:var(--active-bg);color:var(--text-primary)}.channel-item:hover:not(.active){background-color:var(--hover-bg);color:var(--text-primary)}
+.avatar-container{width:40px;height:40px;position:relative;flex-shrink:0}.avatar-img{width:100%;height:100%;border-radius:50%;object-fit:cover;position:relative;z-index:10}.avatar-decoration{position:absolute;top:50%;left:50%;width:128%;height:128%;transform:translate(-50%,-50%);pointer-events:none;z-index:20;object-fit:contain}
+.message-group{position:relative;margin-top:1.8rem;width:100%;display:flex;flex-direction:column;align-items:flex-start}.message-group.grouped{margin-top:.125rem}.message-group:hover{background-color:var(--message-hover)}.message-group:hover .message-toolbar{opacity:1;transform:translateY(0);pointer-events:auto}
+.message-toolbar{opacity:0;pointer-events:none;transform:translateY(-4px);transition:all .1s;border:1px solid var(--border-color)}
+.message-content-text{width:100%;user-select:text;overflow-wrap:break-word;word-break:break-word;line-height:1.375rem;color:var(--text-primary)}.message-sending{opacity:.5}.message-failed .message-content-text{color:#ed4245}
+.message-mentioned{background-color:var(--mention-bg-highlight);position:relative}.message-mentioned::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background-color:var(--mention-border-highlight)}
+.history-line{font-size:.9em;color:var(--text-secondary);opacity:.8;text-decoration:line-through;display:block;margin-bottom:2px}.edited-tag{font-size:.625rem;color:var(--text-secondary);margin-left:4px;user-select:none}
+.reply-spine{position:absolute;top:50%;left:-32px;width:28px;height:12px;border-left:2px solid var(--reply-spine-color);border-top:2px solid var(--reply-spine-color);border-top-left-radius:6px;margin-top:-6px;pointer-events:none;z-index:0}
+.settings-tab-item{padding:6px 12px;border-radius:4px;cursor:pointer;color:var(--text-secondary);font-weight:500}.settings-tab-item:hover{background-color:var(--hover-bg);color:var(--text-primary)}.settings-tab-item.active{background-color:var(--active-bg);color:var(--text-primary);cursor:default}
+.theme-card{width:140px;height:90px;border-radius:8px;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 5px rgba(0,0,0,.2);transition:transform .1s}.theme-card:hover{transform:translateY(-2px)}
+.theme-card-check{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background-color:#fff;border:3px solid var(--text-secondary);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.category-arrow{transition:transform .2s}.category-collapsed .category-arrow{transform:rotate(-90deg)}.channel-collapsed{display:none!important}
+.switch{position:relative;display:inline-block;width:40px;height:24px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#80848e;transition:.4s;border-radius:24px}.slider:before{position:absolute;content:"";height:16px;width:16px;left:4px;bottom:4px;background-color:#fff;transition:.4s;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.2)}input:checked+.slider{background-color:#3ba55c}input:checked+.slider:before{transform:translateX(16px)}
+.plugin-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid var(--bg-quaternary)}.plugin-item:last-child{border-bottom:none}
     </style>
 </head>
 <body class="font-sans h-screen flex flex-col overflow-hidden bg-gray-200 dark:bg-gray-800 text-[var(--text-primary)]">
-    
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[10000] flex flex-col gap-2 pointer-events-none w-max"></div>
-
     <div id="drag-overlay" class="fixed inset-0 z-[200] flex flex-col items-center justify-center backdrop-blur-sm m-4 rounded-3xl border-dashed">
         <svg class="w-32 h-32 text-white animate-bounce mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
         <div class="text-white text-3xl font-bold">ドロップしてファイルをアップロード</div>
     </div>
-
     <div id="custom-context-menu" class="hidden fixed z-[9999] bg-[var(--popup-bg)] border border-[var(--border-color)] shadow-lg rounded-md overflow-hidden text-sm flex flex-col min-w-[200px]"></div>
 
     <div id="settings-modal" class="hidden fixed inset-0 bg-black/50 z-[100] flex justify-center items-center backdrop-blur-sm">
         <div class="bg-[var(--bg-secondary)] w-full max-w-3xl h-[85vh] rounded-lg shadow-2xl flex overflow-hidden scale-100 transition-transform">
-            <div class="w-1/3 bg-[var(--bg-secondary)] p-0 flex flex-col border-r" style="border-color: var(--bg-tertiary);">
+            <div class="w-1/3 bg-[var(--bg-secondary)] p-0 flex flex-col border-r" style="border-color:var(--bg-tertiary)">
                 <div class="p-4 font-bold text-xs uppercase text-[var(--text-secondary)] mt-4 mb-2 pl-6">Settings</div>
                 <div class="px-2 space-y-1">
-                    <div id="tab-btn-plugins" class="settings-tab-item active" onclick="switchSettingsTab('plugins')">Plugins</div>
-                    <div id="tab-btn-general" class="settings-tab-item" onclick="switchSettingsTab('general')">General</div>
+                    <div id="tab-btn-plugins" class="settings-tab-item active" onclick="swST('plugins')">Plugins</div>
+                    <div id="tab-btn-general" class="settings-tab-item" onclick="swST('general')">General</div>
                 </div>
             </div>
             <div class="flex-1 p-8 overflow-y-auto bg-[var(--bg-primary)] relative">
-                <div class="absolute top-6 right-8 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)]" onclick="document.getElementById('settings-modal').classList.add('hidden')"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
-                
-                <div id="tab-content-plugins">
-                    <h2 class="text-2xl font-bold mb-6">Plugins</h2> <div id="plugin-list" class="space-y-4"></div>
-                </div>
-
-                <div id="tab-content-general" class="hidden">
-                    <h2 class="text-2xl font-bold mb-6">General</h2>
-                    <h3 class="text-sm font-bold uppercase text-[var(--text-secondary)] mb-4">THEME</h3>
+                <div class="absolute top-6 right-8 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)]" onclick="hdn($('settings-modal'))"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
+                <div id="tab-content-plugins"><h2 class="text-2xl font-bold mb-6">Plugins</h2> <div id="plugin-list" class="space-y-4"></div></div>
+                <div id="tab-content-general" class="hidden"><h2 class="text-2xl font-bold mb-6">General</h2><h3 class="text-sm font-bold uppercase text-[var(--text-secondary)] mb-4">THEME</h3>
                     <div class="flex gap-4">
-                        <div class="theme-card bg-[#2f3136]" onclick="setTheme('dark')">
-                            <div class="theme-card-check" id="theme-check-dark"><svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div>
-                            <span class="text-white font-bold">Dark</span>
-                        </div>
-                        <div class="theme-card bg-[#ffffff] border border-gray-300" onclick="setTheme('light')">
-                            <div class="theme-card-check hidden" id="theme-check-light"><svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div>
-                            <span class="text-black font-bold">Light</span>
-                        </div>
+                        <div class="theme-card bg-[#2f3136]" onclick="sTh('dark')"><div class="theme-card-check" id="theme-check-dark"><svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div><span class="text-white font-bold">Dark</span></div>
+                        <div class="theme-card bg-[#ffffff] border border-gray-300" onclick="sTh('light')"><div class="theme-card-check hidden" id="theme-check-light"><svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div><span class="text-black font-bold">Light</span></div>
                     </div>
                 </div>
             </div>
@@ -207,819 +64,175 @@ input:checked + .slider { background-color: #3ba55c; } input:checked + .slider:b
 
     <div id="auth-section" class="w-full max-w-md m-auto p-8 rounded-lg shadow-xl flex-col bg-white dark:bg-gray-700 hidden relative z-50">
         <div id="migration-view" class="hidden flex-col items-center justify-center mb-4"><div class="loader mb-2"></div><div class="text-sm font-bold text-center">データを更新中...</div></div>
-        <div id="account-selection-view" class="hidden flex-col">
-            <h1 class="text-2xl font-bold text-center mb-6">おかえりなさい！</h1>
-            <div id="saved-accounts-list" class="space-y-2 mb-4 max-h-80 overflow-y-auto"></div>
-            <button type="button" id="show-add-account-form-btn" class="mt-2 text-sm text-[var(--text-secondary)] hover:underline text-center w-full">別のアカウントを追加</button>
-        </div>
-        <div id="token-input-view" class="hidden flex-col">
-            <h1 class="text-2xl font-bold text-center mb-2" id="auth-title">アカウントを追加</h1>
-            <div id="relogin-user-info" class="hidden flex-col items-center mb-4 p-4 bg-[var(--bg-primary)] rounded-lg">
-                <img id="relogin-avatar" src="" class="w-20 h-20 rounded-full mb-2 shadow-md"> <div id="relogin-name" class="font-bold text-lg"></div> <div class="text-xs opacity-60">@<span id="relogin-username"></span></div>
-                <div class="text-red-500 font-bold text-sm mt-2 animate-pulse">再ログインが必要です</div>
-            </div>
+        <div id="account-selection-view" class="hidden flex-col"><h1 class="text-2xl font-bold text-center mb-6">おかえりなさい！</h1><div id="saved-accounts-list" class="space-y-2 mb-4 max-h-80 overflow-y-auto"></div><button type="button" id="show-add-account-form-btn" class="mt-2 text-sm text-[var(--text-secondary)] hover:underline text-center w-full">別のアカウントを追加</button></div>
+        <div id="token-input-view" class="hidden flex-col"><h1 class="text-2xl font-bold text-center mb-2" id="auth-title">アカウントを追加</h1><div id="relogin-user-info" class="hidden flex-col items-center mb-4 p-4 bg-[var(--bg-primary)] rounded-lg"><img id="relogin-avatar" src="" class="w-20 h-20 rounded-full mb-2 shadow-md"> <div id="relogin-name" class="font-bold text-lg"></div> <div class="text-xs opacity-60">@<span id="relogin-username"></span></div><div class="text-red-500 font-bold text-sm mt-2 animate-pulse">再ログインが必要です</div></div>
             <div id="login-error" class="text-red-500 text-xs mb-3 text-center"></div>
-            <form class="space-y-4" onsubmit="return false;">
-                <div class="text-xs text-[var(--text-secondary)] uppercase font-bold" id="token-label">トークン</div> <input type="password" id="token-input" class="input-field w-full p-2.5 rounded-md" placeholder="MTE...">
-                <button type="button" id="add-account-button" class="bg-blue-600 hover:bg-blue-700 w-full py-3 rounded-md font-bold text-white flex justify-center items-center transition-colors"> <span id="add-account-button-text">ログイン</span><div id="login-spinner" class="loader hidden" style="width: 20px; height: 20px; border-width: 3px;"></div></button>
-                <button type="button" id="back-to-accounts-btn" class="text-sm text-[var(--text-secondary)] hover:underline w-full py-2">アカウント一覧に戻る</button>
-            </form>
+            <form class="space-y-4" onsubmit="return false;"><div class="text-xs text-[var(--text-secondary)] uppercase font-bold" id="token-label">トークン</div> <input type="password" id="token-input" class="input-field w-full p-2.5 rounded-md" placeholder="MTE..."><button type="button" id="add-account-button" class="bg-blue-600 hover:bg-blue-700 w-full py-3 rounded-md font-bold text-white flex justify-center items-center transition-colors"><span id="add-account-button-text">ログイン</span><div id="login-spinner" class="loader hidden" style="width:20px;height:20px;border-width:3px"></div></button><button type="button" id="back-to-accounts-btn" class="text-sm text-[var(--text-secondary)] hover:underline w-full py-2">アカウント一覧に戻る</button></form>
         </div>
     </div>
 
     <div id="main-app" class="hidden flex-1 flex-row min-h-0 relative">
         <div id="sidebar-view" class="flex flex-row w-full h-full md:w-auto md:flex">
-            <div class="p-3 flex flex-col items-center gap-2 overflow-y-auto flex-shrink-0 no-scrollbar" style="background-color: var(--bg-tertiary);">
-                <div id="dm-icon" title="DM" class="server-icon bg-indigo-600 flex items-center justify-center cursor-pointer text-white font-black text-xl mb-1 hover:bg-indigo-500 transition-all duration-200 shrink-0 relative z-20">DM</div>
-                <div class="w-8 h-[2px] rounded-lg bg-[var(--bg-quaternary)] my-1 shrink-0"></div> <div id="guild-list" class="flex flex-col items-center gap-2 w-full pb-4"></div>
+            <div class="p-3 flex flex-col items-center gap-2 overflow-y-auto flex-shrink-0 no-scrollbar" style="background-color:var(--bg-tertiary)">
+                <div id="dm-icon" title="DM" class="server-icon bg-indigo-600 flex items-center justify-center cursor-pointer text-white font-black text-xl mb-1 hover:bg-indigo-500 transition-all duration-200 shrink-0 relative z-20">DM</div><div class="w-8 h-[2px] rounded-lg bg-[var(--bg-quaternary)] my-1 shrink-0"></div><div id="guild-list" class="flex flex-col items-center gap-2 w-full pb-4"></div>
             </div>
-            <div class="w-full md:w-60 flex flex-col border-r flex-1 min-h-0 bg-[var(--bg-secondary)]" style="border-color: var(--bg-tertiary);">
-                <div class="h-12 p-3 border-b font-bold truncate flex items-center shadow-sm select-none hover:bg-[var(--hover-bg)] transition-colors cursor-pointer" id="guild-name" style="border-color: var(--bg-tertiary);"></div>
+            <div class="w-full md:w-60 flex flex-col border-r flex-1 min-h-0 bg-[var(--bg-secondary)]" style="border-color:var(--bg-tertiary)">
+                <div class="h-12 p-3 border-b font-bold truncate flex items-center shadow-sm select-none hover:bg-[var(--hover-bg)] transition-colors cursor-pointer" id="guild-name" style="border-color:var(--bg-tertiary)"></div>
                 <div id="channel-list" class="flex-1 overflow-y-auto p-2"></div>
-                <div class="relative flex-shrink-0 bg-[var(--bg-tertiary)]/80 backdrop-blur-md">
-                    <div id="user-info-panel" class="p-2.5 flex items-center gap-2 h-[58px] cursor-pointer" onclick="document.getElementById('account-switcher').classList.toggle('hidden')">
-                        <div class="relative w-9 h-9 flex-shrink-0"><div id="current-user-avatar-container" class="w-full h-full relative"></div></div>
-                        <div class="flex-1 min-w-0 flex flex-col justify-center select-none"><div class="text-sm font-bold truncate leading-tight" id="current-user-name"></div><div class="text-xs opacity-60 truncate leading-tight" id="current-user-subtext"></div></div>
-                        <div class="flex items-center"><button id="open-settings-btn" class="p-2 hover:bg-[var(--active-bg)] rounded-md cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="ユーザー設定" onclick="event.stopPropagation(); renderSettingsModal();"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"></path></svg></button></div>
-                    </div>
-                    <div id="account-switcher" class="hidden absolute bottom-[110%] left-2 min-w-[240px] rounded-lg shadow-xl overflow-hidden border z-50 bg-[var(--popup-bg)]" style="border-color: var(--border-color);">
-                        <div id="account-list" class="max-h-60 overflow-y-auto p-1 space-y-0.5"></div><div class="border-t p-1 mt-1" style="border-color: var(--border-color);"><div id="add-account-switcher-btn" class="text-sm p-2 rounded cursor-pointer hover:bg-indigo-500 hover:text-white flex items-center gap-2 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> アカウントを追加</div></div>
-                    </div>
-                </div>
+                <div class="relative flex-shrink-0 bg-[var(--bg-tertiary)]/80 backdrop-blur-md"><div id="user-info-panel" class="p-2.5 flex items-center gap-2 h-[58px] cursor-pointer" onclick="$('account-switcher').classList.toggle('hidden')"><div class="relative w-9 h-9 flex-shrink-0"><div id="current-user-avatar-container" class="w-full h-full relative"></div></div><div class="flex-1 min-w-0 flex flex-col justify-center select-none"><div class="text-sm font-bold truncate leading-tight" id="current-user-name"></div><div class="text-xs opacity-60 truncate leading-tight" id="current-user-subtext"></div></div><div class="flex items-center"><button id="open-settings-btn" class="p-2 hover:bg-[var(--active-bg)] rounded-md cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors" title="ユーザー設定" onclick="event.stopPropagation();rSM()"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"></path></svg></button></div></div><div id="account-switcher" class="hidden absolute bottom-[110%] left-2 min-w-[240px] rounded-lg shadow-xl overflow-hidden border z-50 bg-[var(--popup-bg)]" style="border-color:var(--border-color)"><div id="account-list" class="max-h-60 overflow-y-auto p-1 space-y-0.5"></div><div class="border-t p-1 mt-1" style="border-color:var(--border-color)"><div id="add-account-switcher-btn" class="text-sm p-2 rounded cursor-pointer hover:bg-indigo-500 hover:text-white flex items-center gap-2 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> アカウントを追加</div></div></div></div>
             </div>
         </div>
 
         <div id="chat-section" class="hidden flex-1 md:flex flex-col min-h-0 min-w-0 bg-[var(--bg-primary)] relative">
-            <div class="h-12 p-3 border-b flex items-center justify-between flex-shrink-0 shadow-sm" style="border-color: var(--bg-tertiary); background-color:var(--bg-secondary);">
+            <div class="h-12 p-3 border-b flex items-center justify-between flex-shrink-0 shadow-sm" style="border-color:var(--bg-tertiary);background-color:var(--bg-secondary)">
                 <div class="font-bold flex items-center truncate"><button id="back-to-channels-btn" class="mr-3 p-1 rounded-full hover:bg-[var(--bg-tertiary)] md:hidden"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button> <span id="channel-name-text"></span></div>
             </div>
-            
-            <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-0" style="background-color: var(--bg-primary);"></div>
-            
+            <div id="message-container" class="flex-1 overflow-y-auto p-4 space-y-0" style="background-color:var(--bg-primary)"></div>
             <div class="flex-shrink-0 pt-0">
-                <div id="attachment-list" class="hidden px-4 py-2 text-sm border-t flex flex-wrap gap-2 bg-[var(--bg-secondary)]" style="border-color: var(--bg-tertiary);"></div>
+                <div id="attachment-list" class="hidden px-4 py-2 text-sm border-t flex flex-wrap gap-2 bg-[var(--bg-secondary)]" style="border-color:var(--bg-tertiary)"></div>
                 <div class="px-4 pb-4 pt-1 bg-[var(--bg-primary)]">
-                    <div class="flex items-start gap-2 bg-[var(--bg-tertiary)] p-2 rounded-lg relative transition-all shadow-sm" style="min-height: 44px;">
-                        <input type="file" id="file-input" class="hidden" multiple> <button id="attach-button" class="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors mt-0.5" title="ファイルを添付"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg></button>
-                        <div class="relative w-full self-center">
-                            <div id="popup-picker" class="hidden absolute left-0 w-full popup-menu" style="bottom: 100%; margin-bottom: 12px;"></div>
-                            <div id="reply-bar" class="hidden flex items-center justify-between text-sm text-[var(--text-secondary)] mb-1 px-1 opacity-80"><span class="truncate">Replying to <b id="reply-username"></b></span><button id="cancel-reply-btn" class="p-0.5 rounded-full hover:text-[var(--text-primary)]"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></button></div>
-                            <textarea id="message-input" placeholder="メッセージを送信" class="input-field w-full bg-transparent p-1.5 text-[0.95rem] resize-none max-h-[50vh] focus:outline-none min-h-[24px]" rows="1"></textarea> <div id="char-counter" class="absolute bottom-1 right-1 text-[10px] font-mono font-bold text-[var(--text-secondary)] opacity-0 pointer-events-none select-none"></div>
-                        </div>
-                        <button id="send-button" class="p-2 rounded-lg text-[var(--button-bg)] hover:bg-[var(--hover-bg)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end" disabled><svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(0deg);"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                    <div class="flex items-start gap-2 bg-[var(--bg-tertiary)] p-2 rounded-lg relative transition-all shadow-sm" style="min-height:44px"><input type="file" id="file-input" class="hidden" multiple><button id="attach-button" class="p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors mt-0.5" title="ファイルを添付"><svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg></button><div class="relative w-full self-center"><div id="popup-picker" class="hidden absolute left-0 w-full popup-menu" style="bottom:100%;margin-bottom:12px"></div><div id="reply-bar" class="hidden flex items-center justify-between text-sm text-[var(--text-secondary)] mb-1 px-1 opacity-80"><span class="truncate">Replying to <b id="reply-username"></b></span><button id="cancel-reply-btn" class="p-0.5 rounded-full hover:text-[var(--text-primary)]"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></button></div><textarea id="message-input" placeholder="メッセージを送信" class="input-field w-full bg-transparent p-1.5 text-[0.95rem] resize-none max-h-[50vh] focus:outline-none min-h-[24px]" rows="1"></textarea> <div id="char-counter" class="absolute bottom-1 right-1 text-[10px] font-mono font-bold text-[var(--text-secondary)] opacity-0 pointer-events-none select-none"></div></div><button id="send-button" class="p-2 rounded-lg text-[var(--button-bg)] hover:bg-[var(--hover-bg)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors self-end" disabled><svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <script>
-const API_BASE = 'https://discord.com/api/v10';
-let ws = null;
-let currentAccount = null;
-let currentChannel = null;
-let lastSequence = null;
-let heartbeatInterval = null;
-let replyingTo = null;
-let oldestMessageId = null;
-let isLoadingMore = false;
-let attachedFiles =[];
-let maxCharCount = 2000;
-let guildFolders =[];
-let guildDataMap = new Map();
-let openFolderId = null; 
-let pingCounts = {};
-let messageStore = {}; 
-let editedMessages = {}; 
-let dragCounter = 0;
+<script>
+const $ = i=>document.getElementById(i), $$ = s=>document.querySelectorAll(s), cE = t=>document.createElement(t), hdn = e=>e&&e.classList.add('hidden'), shw = (e,c='flex')=>e&&(e.classList.remove('hidden','flex','block'),e.classList.add(c));
+const _API='https://discord.com/api/v10', _L=localStorage, P=JSON.parse(_L.getItem('plugins'))||{showMeYourName:0,sendSeconds:0,messageLogger:1,clickAction:1,showCharacter:1,serverInfo:0};
+let ws, cAcc, cCh, lSeq, hbIvl, rpTo, oMId, isLdM=0, aFils=[], maxCh=2000, gFols=[], gMap=new Map(), oFId, mSt={}, eMSt={}, dCnt=0, cMDa={text:"",authorId:""};
 
-let contextMenuData = { text: "", authorId: "" };
+const iCo="<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z'></path></svg>", iId="<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2'></path></svg>", iSi="<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'></path></svg>", iLv="<svg class='w-4 h-4' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1'></path></svg>", _svDel=`<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`, _svEd=`<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`, _svRp=`<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>`;
 
-const plugins = JSON.parse(localStorage.getItem('plugins')) || { showMeYourName: false, sendSeconds: false, messageLogger: true, clickAction: true, showCharacter: true, serverInfo: false };
-function updatePingDots() {}
+const tst=m=>{ const c=$('toast-container'),e=cE('div'); e.className="bg-green-600/90 backdrop-blur-md text-white px-5 py-3 rounded-md shadow-xl text-sm font-bold flex items-center transition-all duration-300 opacity-0 transform -translate-y-5 border border-green-500/30"; e.innerHTML=`<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> <span>${m}</span>`; c.appendChild(e); requestAnimationFrame(()=>e.classList.remove('opacity-0','-translate-y-5')); setTimeout(()=>{e.classList.add('opacity-0','-translate-y-5');setTimeout(()=>e.remove(),300)},4500); };
+const cTst=(c,n)=>navigator.clipboard.writeText(c).then(()=>{tst(`${n} をコピーしました: ${c}`);hdn($('custom-context-menu'));});
+const sCMu=(e,f)=>{ e.preventDefault(); e.stopPropagation(); const m=$('custom-context-menu'); m.innerHTML=''; f(m); shw(m); m.style.left=`${Math.min(e.clientX,innerWidth-200)}px`; m.style.top=`${Math.min(e.clientY,innerHeight-100)}px`; };
+const cmb=(t,i,f,c="")=>{ const b=cE('button'); b.className=`text-left w-full px-4 py-2 hover:bg-[var(--button-bg)] hover:text-white cursor-pointer transition-colors text-[var(--text-primary)] font-bold text-xs border-none bg-transparent outline-none flex items-center gap-2 ${c}`; b.innerHTML=`${i} ${t}`; b.onclick=e=>{e.stopPropagation();hdn($('custom-context-menu'));f()}; return b; };
+const cms=()=>Object.assign(cE('div'),{className:"w-full h-px bg-[var(--bg-tertiary)]"});
+const sSCMu=(e,s)=>sCMu(e,m=>{ m.append(cmb("サーバーIDをコピー",iId,()=>cTst(s.id,"サーバーID"))); if(P.serverInfo){m.append(cms());m.append(cmb("サーバー情報を表示",iSi,()=>shSIf(s)));} m.append(cms()); m.append(cmb("サーバーを脱退",iLv,()=>lvSv(s),"text-red-500 hover:!bg-red-500")); });
+const sCAndID=(e,o,i)=>sCMu(e,m=>{ cMDa={text:getSelection().toString().trim()||o, authorId:i||"Unknown"}; m.appendChild(cmb("メッセージ全体をコピー",iCo,()=>cTst(cMDa.text,"メッセージテキスト"))); m.appendChild(cms()); m.appendChild(cmb("発言者のユーザーIDをコピー",iId,()=>cTst(cMDa.authorId,"ユーザーID"))); });
+const lvSv=s=>{ if(confirm(`本当に ${s.name} から脱退しますか？`))api(cAcc.token,`/users/@me/guilds/${s.id}`,'DELETE').then(()=>{tst(`${s.name} を脱退しました`);ldGs();if(cCh&&cCh.guild_id===s.id)ldDs();}); };
+const hdFl=fs=>{ if(aFils.length>=10)return alert('10個までです'); for(const f of fs)if(aFils.length<10)aFils.push(f); rAtL();hInp(); };
+const rAtL=()=>{ const l=$('attachment-list'); l.innerHTML=''; if(!aFils.length)return hdn(l); shw(l); aFils.forEach((f,i)=>{ const e=cE('div'); e.className="bg-[var(--bg-tertiary)] rounded px-2 py-1 text-xs flex items-center gap-2 border border-[var(--border-color)]"; e.innerHTML=`<span class="truncate max-w-[150px]">${f.name}</span> <button class="text-red-500 font-bold hover:text-red-700">×</button>`; e.querySelector('button').onclick=()=>{aFils.splice(i,1);rAtL();hInp();}; l.appendChild(e); }); };
+const api=async(tk,p,md='GET',bd=null,f=0)=>{ const o={method:md,headers:{'Authorization':tk,'X-Super-Properties':btoa(JSON.stringify({os:"Windows",browser:"Chrome",system_locale:"ja"}))}}; if(bd){if(f)o.body=bd;else{o.body=JSON.stringify(bd);o.headers['Content-Type']='application/json';}} try{const r=await fetch(_API+p,o); if(r.status===401)return{error:{message:"Unauthorized"},status:401}; const d=r.status===204?{}:await r.json(); return!r.ok?{error:d,status:r.status}:{data:d,status:r.status};}catch(e){return{error:{message:"Network error"},status:0};} };
 
-function showToast(message) {
-    const tContainer = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    el.className = "bg-green-600/90 backdrop-blur-md text-white px-5 py-3 rounded-md shadow-xl text-sm font-bold flex items-center transition-all duration-300 opacity-0 transform -translate-y-5 border border-green-500/30";
-    el.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> <span>${message}</span>`;
-    tContainer.appendChild(el);
-    requestAnimationFrame(() => { el.classList.remove('opacity-0', '-translate-y-5'); el.classList.add('opacity-100', 'translate-y-0'); });
-    setTimeout(() => {
-        el.classList.remove('opacity-100', 'translate-y-0'); el.classList.add('opacity-0', '-translate-y-5');
-        setTimeout(() => el.remove(), 300);
-    }, 4500);
-}
-function copyAndToast(content, targetName) {
-    navigator.clipboard.writeText(content).then(() => {
-        showToast(`${targetName} をコピーしました: ${content}`);
-        document.getElementById('custom-context-menu').classList.add('hidden');
-    }).catch(console.error);
-}
+const gtAc=()=>JSON.parse(_L.getItem('accounts'))||[], svAc=a=>_L.setItem('accounts',JSON.stringify(a)), gtAId=()=>_L.getItem('activeAccountId'), stAId=i=>_L.setItem('activeAccountId',i);
+const clSt=()=>{ if(ws){ws.onclose=null;ws.close();ws=null;} cCh=null;aFils=[]; if(hbIvl)clearInterval(hbIvl); $('guild-list').innerHTML='';$('channel-list').innerHTML='';$('message-container').innerHTML='';$('guild-name').innerText=''; mSt={};gFols=[];gMap.clear();eMSt={};cRp();rAtL(); };
+const swAc=id=>{ clSt(); stAId(id); const a=gtAc().find(x=>x.id===id); if(!a)return shLg(); cAcc=a; maxCh=cAcc.premium_type===2?4000:2000; $('token-input').value=''; upV('app'); rCUp(); ldGs(); setTimeout(cWS,100); };
+const upV=v=>{ const a=$('auth-section'),m=$('main-app'); if(v==='auth'){shw(a);hdn(m);} else{hdn(a);shw(m);if(innerWidth<768)sSb();} };
+const shLg=a=>{ clSt();upV('auth');hdn($('migration-view'));hdn($('token-input-view'));rSAv();(gtAc().length&&!a)?shw($('account-selection-view')) : shTkI(a); };
+const shTkI=a=>{ hdn($('account-selection-view')); shw($('token-input-view')); $('token-input').value=''; const ui=$('relogin-user-info'); if(a){ $('auth-title').innerText='再ログイン';shw(ui); $('relogin-name').innerText=a.global_name||a.username; $('relogin-username').innerText=a.username; $('relogin-avatar').src=a.avatar?`https://cdn.discordapp.com/avatars/${a.id}/${a.avatar}.png?size=128`:`https://cdn.discordapp.com/embed/avatars/${a.discriminator%5}.png`; $('token-label').innerText='新しいトークン';$('add-account-button-text').innerText='アカウントを更新';$('add-account-button').onclick=()=>addAc($('token-input').value,a.id); }else{ $('auth-title').innerText='アカウントを追加';hdn(ui); $('token-label').innerText='トークン';$('add-account-button-text').innerText='ログイン';$('add-account-button').onclick=()=>addAc($('token-input').value); } };
+const hRz=()=>{ if(innerWidth>=768){sChv();hdn($('sidebar-view'),0);}else if(cCh)sChv();else sSb(); };
+const sSb=()=>{ hdn($('chat-section'),0); shw($('sidebar-view'),0); };
+const sChv=()=>{ hdn($('sidebar-view'),0); shw($('chat-section')); };
 
-function showContextMenuAt(e, buildMenuFn) {
-    e.preventDefault(); e.stopPropagation();
-    const menu = document.getElementById('custom-context-menu');
-    menu.innerHTML = '';
-    buildMenuFn(menu);
-    menu.classList.remove('hidden');
-    let x = e.clientX; let y = e.clientY;
-    if (x + 200 > window.innerWidth) x = window.innerWidth - 200; 
-    if (y + 100 > window.innerHeight) y = window.innerHeight - 100;
-    menu.style.left = `${x}px`; menu.style.top = `${y}px`;
-}
-function createMenuButton(text, iconHtml, onClick, customClasses = "") {
-    const btn = document.createElement('button');
-    btn.className = `text-left w-full px-4 py-2 hover:bg-[var(--button-bg)] hover:text-white cursor-pointer transition-colors text-[var(--text-primary)] font-bold text-xs border-none bg-transparent outline-none flex items-center gap-2 ${customClasses}`;
-    btn.innerHTML = `${iconHtml} ${text}`;
-    btn.onclick = (e) => { e.stopPropagation(); document.getElementById('custom-context-menu').classList.add('hidden'); onClick(); };
-    return btn;
-}
-function createMenuSeparator() {
-    const sep = document.createElement('div');
-    sep.className = `w-full h-px bg-[var(--bg-tertiary)]`;
-    return sep;
-}
+const delAc=(id,e)=>{ if(e)e.stopPropagation(); if(!e?.shiftKey&&!confirm("削除しますか？"))return; let a=gtAc().filter(x=>x.id!==id); svAc(a); if(gtAId()===id||!gtAId()){_L.removeItem('activeAccountId');shLg();}else{rSAv();rCUp();} };
+const addAc=async(tk,x=null)=>{ $('login-error').innerText=""; if(!tk||!tk.trim())return; tk=tk.trim().replace(/^"|"$/g,''); const r=await api(tk,'/users/@me'); if(r.data?.id){ if(x&&x!==r.data.id)return $('login-error').innerText="別のアカウントです"; let a=gtAc(),id=r.data.id,n={...r.data,token:tk},ix=a.findIndex(c=>c.id===id); ix>-1?a[ix]=n:a.push(n); svAc(a); swAc(id); }else $('login-error').innerText=r.error?.message||'エラー'; };
 
-document.addEventListener('DOMContentLoaded', async () => {
-    if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
-    
-    document.addEventListener('click', () => document.getElementById('custom-context-menu').classList.add('hidden') );
-    
-    document.body.addEventListener('paste', e => { const files = e.clipboardData.files; if (files.length > 0) { e.preventDefault(); handleFiles(files); }});
-    const dragOverlay = document.getElementById('drag-overlay');
-    document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; document.body.classList.add('dragging'); });
-    document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if(dragCounter === 0) document.body.classList.remove('dragging'); });
-    document.addEventListener('dragover', e => e.preventDefault()); document.addEventListener('drop', (e) => { e.preventDefault(); dragCounter = 0; document.body.classList.remove('dragging'); if (e.dataTransfer.files.length > 0) { handleFiles(e.dataTransfer.files); }});
+const rSAv=()=>{ const l=$('saved-accounts-list'); l.innerHTML=''; gtAc().forEach(a=>{ const d=cE('div'); d.className="flex items-center gap-3 p-3 border rounded hover:bg-[var(--hover-bg)] cursor-pointer transition-colors"; d.style.borderColor='var(--border-color)'; const av=a.avatar?`https://cdn.discordapp.com/avatars/${a.id}/${a.avatar}.png?size=64`:`https://cdn.discordapp.com/embed/avatars/${a.discriminator%5}.png`; d.innerHTML=`<img src="${av}" class="w-10 h-10 rounded-full bg-gray-300"><div class="flex-1 min-w-0"><div class="font-bold truncate">${a.global_name||a.username}</div><div class="text-xs text-[var(--text-secondary)] truncate">@${a.username}</div></div><div class="del-btn p-2 text-gray-400 hover:text-red-500 rounded-full"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></div>`; d.onclick=e=>{if(!e.target.closest('.del-btn'))swAc(a.id)}; d.querySelector('.del-btn').onclick=e=>delAc(a.id,e); l.appendChild(d); }); };
+const rCUp=()=>{ if(!cAcc)return; $('current-user-name').textContent=cAcc.global_name||cAcc.username; $('current-user-subtext').textContent=`@${cAcc.username}`; const av=cAcc.avatar?`https://cdn.discordapp.com/avatars/${cAcc.id}/${cAcc.avatar}.png?size=64`:`https://cdn.discordapp.com/embed/avatars/${cAcc.discriminator%5}.png`, d=cAcc.avatar_decoration_data?`<img src="https://cdn.discordapp.com/avatar-decoration-presets/${cAcc.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">`:''; $('current-user-avatar-container').innerHTML=`<img src="${av}" class="avatar-img shadow-sm rounded-full">${d}`; rAcSw(); };
+const rAcSw=()=>$('account-list').innerHTML=gtAc().map(a=>`<div class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white group" onclick="swAc('${a.id}')"><img src="${a.avatar?`https://cdn.discordapp.com/avatars/${a.id}/${a.avatar}.png?size=64`:`https://cdn.discordapp.com/embed/avatars/${a.discriminator%5}.png`}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${a.global_name||a.username}</span> ${a.id===gtAId()?'<div class="w-2 h-2 rounded-full bg-green-500"></div>':''} <div onclick="delAc('${a.id}',event)" class="hidden group-hover:block p-1 hover:bg-black/20 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></div></div>`).join('');
 
-    document.getElementById('show-add-account-form-btn').onclick = () => showTokenInput(); document.getElementById('back-to-accounts-btn').onclick = () => showLoginScreen();
-    document.getElementById('dm-icon').onclick = loadDms; document.getElementById('send-button').onclick = sendMessage;
-    
-    document.getElementById('attach-button').onclick = () => { document.getElementById('file-input').click(); }; document.getElementById('file-input').onchange = (e) => { if (e.target.files.length) handleFiles(e.target.files); };
-    document.getElementById('cancel-reply-btn').onclick = cancelReply;
-    
-    const input = document.getElementById('message-input'); input.oninput = handleInput;
-    input.addEventListener('keydown', (e) => {
-        if (e.isComposing) return;
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage();
-        } else if (e.key === 'ArrowUp' && input.value === '') {
-             e.preventDefault(); const els = Array.from(document.querySelectorAll('.message-group')).reverse();
-             for(let el of els) { if(el.dataset.authorId === currentAccount.id && !el.classList.contains('message-failed') && !el.classList.contains('message-sending')) { startEdit(el.id.replace('message-', '')); break; } }
-        }
-    });
+const cSvIc=(s,f=0)=>{ const e=cE('div'); e.id=`guild-${s.id}`; e.className=`server-icon group ${f?'in-folder':''}`; e.title=s.name; e.onclick=()=>ldCh(s,e); e.oncontextmenu=c=>sSCMu(c,s); e.innerHTML=s.icon?`<img src="https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=128" class="object-cover w-full h-full transition-all group-hover:rounded-2xl rounded-[50%]">`:`<div class="w-full h-full flex items-center justify-center bg-gray-700 text-white font-bold text-sm transition-all group-hover:rounded-2xl rounded-[50%]">${s.name.substring(0,2)}</div>`; return e; };
+const rFls=()=>{ const l=$('guild-list'); l.innerHTML=''; gFols.forEach(i=>{ if(!i.guild_ids?.length)return; if(i.id){ const w=cE('div'); w.className='flex flex-col items-center gap-2 w-full transition-all'; w.id=`folder-${i.id}`; const gs=i.guild_ids.map(id=>gMap.get(id)).filter(Boolean); if(!gs.length)return; const h=cE('div'); h.className='folder-closed group'; const m=()=>{h.innerHTML='';gs.slice(0,4).forEach(g=>{const e=cE('img');e.className='folder-icon-thumb';e.src=g.icon?`https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64`:'https://cdn.discordapp.com/embed/avatars/0.png';h.appendChild(e)});}; m(); let co=`rgba(${i.color?[(i.color>>16)&255,(i.color>>8)&255,i.color&255].join(','):'88,101,242'},0.4)`; h.style.backgroundColor=co; const c=cE('div'); c.className='hidden flex-col gap-2 items-center w-full py-1'; gs.forEach(g=>c.appendChild(cSvIc(g,1))); h.onclick=()=>{ if(oFId===i.id){oFId=null;hdn(c);h.classList.replace('folder-opened','folder-closed');h.style.backgroundColor=co;m();}else{ if(oFId){const p=$(`#folder-${oFId} .folder-opened`);if(p)p.click();} oFId=i.id;shw(c);h.classList.replace('folder-closed','folder-opened');h.innerHTML=`<div class="text-white opacity-80 w-6 h-6"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 7H12L10 5H4C2.9 5 2.01 5.9 2.01 7L2 19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V9C22 7.9 21.1 7 20 7Z"/></svg></div>`;h.style.backgroundColor='rgba(88,101,242,0.3)';} }; w.appendChild(h); w.appendChild(c); l.appendChild(w); } else i.guild_ids.forEach(d=>{const s=gMap.get(d); if(s)l.appendChild(cSvIc(s));}); }); };
+const ldGs=async()=>{ if(!cAcc)return; const r=await api(cAcc.token, '/users/@me/guilds'); if(r.error) return (r.status===401&&shLg(cAcc)); gMap.clear(); r.data.forEach(s=>gMap.set(s.id,s)); if(gFols.length) rFls(); else{ const l=$('guild-list'); l.innerHTML=''; r.data.forEach(s=>l.appendChild(cSvIc(s))); }};
 
-    document.getElementById('back-to-channels-btn').onclick = showSidebarView; document.getElementById('open-settings-btn').onclick = (e) => { e.stopPropagation(); renderSettingsModal(); };
-    document.getElementById('add-account-switcher-btn').onclick = () => { document.getElementById('account-switcher').classList.add('hidden'); showLoginScreen(); };
+const ldDs=async()=>{ if(!cAcc)return; $$('.server-icon.active').forEach(e=>e.classList.remove('active')); $('dm-icon').classList.add('active'); $('guild-name').innerText='Direct Messages'; const r=await api(cAcc.token, '/users/@me/channels'); if(r.error)return; const l=$('channel-list'); l.innerHTML=''; r.data.sort((a,b)=>(b.last_message_id||0)-(a.last_message_id||0)).forEach(c=>{ const x=cE('div'); x.className="channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center"; let ic='<span class="text-xl mr-2 text-[var(--text-secondary)]">@</span>',n="DM"; if(c.recipients?.[0]){ const u=c.recipients[0]; ic=`<img src="${u.avatar?`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=32`:'https://cdn.discordapp.com/embed/avatars/0.png'}" class="w-5 h-5 mr-2 rounded-full">`; n=u.global_name?`${u.global_name} (${u.username})`:u.username; } x.innerHTML=`${ic}<span>${n}</span>`; x.onclick=()=>slCh(c); l.appendChild(x); }); };
 
-    window.addEventListener('resize', handleResize);
-    const accounts = getAccounts(); const activeId = getActiveAccountId();
-    if (accounts.length > 0 && activeId) switchAccount(activeId); else showLoginScreen();
+const ldCh=async(g,e)=>{ if(!cAcc)return; $$('.server-icon.active').forEach(x=>x.classList.remove('active')); if(e)e.classList.add('active'); $('guild-name').innerText=g.name; const r=await api(cAcc.token, `/guilds/${g.id}/channels`); if(r.error)return; const l=$('channel-list'); l.innerHTML=''; const p=r.data.reduce((a,v)=>((a[v.parent_id||'null']=a[v.parent_id||'null']||[]).push(v),a),{}); Object.values(p).forEach(x=>x.sort((a,b)=>a.position-b.position)); const rC=(v,i=null)=>{ if(![0,5,2].includes(v.type))return; const d=cE('div'); d.id=`channel-${v.id}`; d.className=`channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center relative ${i?'channel-child-'+i+' ml-3':''}`; d.innerHTML=`${v.type===2?'<svg class="w-5 h-5 mr-1.5 opacity-60" fill="currentColor" viewBox="0 0 24 24"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-4 0a8.977 8.977 0 00-6.22 3.32l1.62 1.34C6.54 6.78 7.68 6 9 6c2.37 0 4.54 1.05 5.96 2.7l1.7-1.39A8.932 8.932 0 0010 3.23zM5.16 8.78L2.73 11.2a8.96 8.96 0 000 3.19l2.43 2.43 1.54-1.54-.78-.79c-.28-.56-.45-1.19-.45-1.87s.17-1.3.45-1.86l.78-.78-1.54-1.54z"></path></svg>':'<span class="text-xl mr-2 text-[var(--text-secondary)] opacity-70">#</span>'}<span class="${v.type===2?'':'font-medium'}">${v.name}</span>`; if(v.type!==2){d.onclick=()=>slCh(v);d.oncontextmenu=y=>{y.preventDefault();cTst(v.id,"チャンネルID");}}else d.classList.add('opacity-50','cursor-not-allowed'); l.appendChild(d); }; (p['null']||[]).forEach(v=>rC(v)); r.data.filter(x=>x.type===4).sort((x,y)=>x.position-y.position).forEach(c=>{ const h=cE('div'); h.className='px-2 pt-4 pb-1 text-xs font-bold uppercase text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer flex items-center select-none group'; h.innerHTML=`<svg class="w-3 h-3 mr-1 category-arrow transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> ${c.name}`; h.onclick=()=>{const o=h.classList.toggle('category-collapsed');$$(`.channel-child-${c.id}`).forEach(y=>y.classList.toggle('channel-collapsed',o));}; l.appendChild(h); (p[c.id]||[]).forEach(x=>rC(x,c.id)); }); };
+
+const slCh=async ch=>{ cCh=ch; oMId=null; isLdM=0; cRp(); aFils=[]; rAtL(); $$('.channel-item.active').forEach(x=>x.classList.remove('active')); const e=$(`channel-${ch.id}`); if(e)e.classList.add('active'); if(innerWidth<768)sChv(); let n=ch.name||'DM'; if(ch.recipients?.[0])n=ch.recipients[0].global_name?`${ch.recipients[0].global_name} (${ch.recipients[0].username})`:ch.recipients[0].username; $('channel-name-text').innerHTML=`<span class="text-[var(--text-secondary)] opacity-70 mr-1.5">#</span><span>${n}</span>`; const mc=$('message-container'); mc.innerHTML='<div class="w-full h-full flex items-center justify-center"><div class="loader"></div></div>'; hInp(); const r=await api(cAcc.token,`/channels/${ch.id}/messages?limit=50`); mc.innerHTML=''; if(r.error)return (r.status===401?shLg(cAcc):(mc.innerHTML=`<div class="p-8 text-center text-red-500 font-bold">アクセスできません</div>`)); if(r.data.length){ oMId=r.data[r.data.length-1].id; const f=document.createDocumentFragment(),ar=r.data.slice().reverse(); ar.forEach((m,i)=>{if(P.messageLogger)mSt[m.id]=m;const p=i>0?ar[i-1]:null; f.appendChild(cME(m, p&&p.author.id===m.author.id&&!m.referenced_message&&!m.webhook_id&&!p.webhook_id&&m.type===0&&p.type===0&&(new Date(m.timestamp)-new Date(p.timestamp)<300000))); }); mc.appendChild(f); mc.scrollTop=mc.scrollHeight; } };
+$('message-container').onscroll=async e=>{ const c=e.target; if(isLdM||!oMId||!cCh||c.scrollTop>50)return; isLdM=1; const oS=c.scrollHeight,r=await api(cAcc.token,`/channels/${cCh.id}/messages?limit=50&before=${oMId}`); if(r.data?.length){ oMId=r.data[r.data.length-1].id; const f=document.createDocumentFragment(); let lId=null,ltTs=0; r.data.reverse().forEach((m,i)=>{if(P.messageLogger)mSt[m.id]=m;let g=0;if(i>0&&lId===m.author.id&&!m.referenced_message&&!m.webhook_id&&(new Date(m.timestamp).getTime()-ltTs)<300000)g=1;f.appendChild(cME(m,g));lId=m.author.id;ltTs=new Date(m.timestamp).getTime();}); c.prepend(f); c.scrollTop=c.scrollHeight-oS; }else oMId=null; isLdM=0; };
+
+const pMd=t=>{ if(!t)return''; let r=t.replace(/</g,'&lt;').replace(/>/g,'&gt;'); return r.replace(/(?:^|\n)-#\s+(.+)/g, (m,p)=>`\n<div class="text-[0.75rem] opacity-75 font-medium m-0 leading-tight">${p}</div>`).replace(/(?:^|\n)(#{1,3})\s+(.+)/g,(m,h,p)=>`\n<div class="${['','text-2xl font-bold mt-4 mb-2','text-xl font-bold mt-3 mb-1.5','text-lg font-bold mt-2 mb-1'][h.length]}">${p}</div>`).replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/__(.*?)__/g,'<u>$1</u>').replace(/~~(.*?)~~/g,'<s>$1</s>').replace(/&lt;(a?):([^:]+):(\d+)&gt;/g,(m,a,n,i)=>`<img src="https://cdn.discordapp.com/emojis/${i}.${a==='a'?'gif':'webp'}?size=44&quality=lossless" title=":${n}:" class="inline-block w-[1.35em] h-[1.35em] align-text-bottom mx-[1px]" style="object-fit:contain;">`).replace(/(https?:\/\/[^\s]+)/g,'<a href="$1" target="_blank" class="text-[var(--text-link)] hover:underline break-words max-w-full">$1</a>').replace(/\n/g,'<br>'); };
+const cME=(m,iG)=>{
+    let cH=pMd(m.content), aH=''; if(m.mentions)m.mentions.forEach(u=>{cH=cH.replace(new RegExp(`&lt;@!?${u.id}&gt;`,'g'),`<span class="bg-[var(--mention-bg)] text-[var(--mention-fg)] px-0.5 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white">@${u.global_name||u.username}</span>`);});
+    if(m.attachments?.length)m.attachments.forEach(a=>{const i=a.content_type?.startsWith('image/'),v=a.content_type?.startsWith('video/'),d=m.deleted?'opacity-50 grayscale':''; if(i)aH+=`<a href="${a.url}" target="_blank" class="block mt-2"><img src="${a.url}" class="max-w-[300px] max-h-[300px] rounded-lg bg-[var(--bg-tertiary)] object-contain ${d}" style="display:block;"></a>`;else if(v)aH+=`<video src="${a.url}" controls class="max-w-[300px] mt-2 rounded-lg bg-black block"></video>`;else aH+=`<div class="mt-2 p-3 rounded-md bg-[var(--bg-tertiary)] border border-[var(--border-color)] flex items-center"><a href="${a.url}" target="_blank" class="text-[var(--text-link)] font-mono text-sm break-all">📎 ${a.filename}</a></div>`;});
+    if(m.sticker_items?.length)m.sticker_items.forEach(s=>{aH+=`<a href="https://cdn.discordapp.com/stickers/${s.id}.png?size=160" target="_blank" class="block mt-2" title="${s.name}"><img src="https://cdn.discordapp.com/stickers/${s.id}.png?size=160" class="w-[140px] h-[140px] object-contain drop-shadow" alt="${s.name}"></a>`;});
+    const el=cE('div'); el.id=`message-${m.id}`; if(m.nonce)el.dataset.nonce=m.nonce; el.className=`message-group ${iG?'grouped':''} flex flex-col relative w-full ${m.deleted?'opacity-80':''}`; el.dataset.authorId=m.author.id; if(m.mentions?.some(u=>u.id===cAcc?.id))el.classList.add('message-mentioned');
+    if(P.clickAction&&!m.deleted)el.ondblclick=()=>sRp(m); if(m.isSending)el.classList.add('message-sending'); if(m.isFailed)el.classList.add('message-failed'); el.oncontextmenu=e=>sCAndID(e,m.content,m.author.id);
+    let hh=''; if(P.messageLogger&&eMSt[m.id])hh=`<div class="text-[var(--text-secondary)] opacity-80 text-sm line-through mb-1 whitespace-pre-wrap">${eMSt[m.id]}</div>`;
+    const im=cAcc&&m.author.id===cAcc.id, tB=`<div class="message-toolbar absolute -top-4 right-4 rounded shadow-sm bg-[var(--bg-secondary)] flex items-center p-0.5 z-20 border border-[var(--border-color)]">${im?`<button onclick="sEd('${m.id}')" class="p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]">${_svEd}</button>`:''}${im?`<button onclick="delM('${m.id}',event)" class="p-1 hover:bg-[var(--bg-primary)] rounded text-red-500">${_svDel}</button>`:''}<button onclick='sRp(${JSON.stringify({id:m.id,author:m.author})})' class="p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]">${_svRp}</button></div>`, eTg=m.edited_timestamp?'<span class="edited-tag text-[10px] text-[var(--text-secondary)] ml-1">(edited)</span>':'', dT=m.deleted?'<span class="text-red-500 ml-1 text-xs">(deleted)</span>':'',
+    bD=`<div class="message-body message-content-text whitespace-pre-wrap leading-6 relative">${cH}${eTg}${dT}</div>`, flC=`${hh}${bD}${aH?`<div class="message-accessories whitespace-normal mt-1 w-full max-w-full">${aH}</div>`:''}`;
+    if(m.type===7){el.className='px-4 py-2 opacity-70 flex items-center gap-2 text-green-600 mt-2'; el.innerHTML=`<span>👋</span> <b>${m.author.global_name||m.author.username}</b> が参加しました。`; return el;}
+    const dO=new Date(m.timestamp); if(iG) el.innerHTML=`${!m.deleted?tB:''}<div class="flex items-start w-full relative"><div class="w-[72px] min-w-[72px] flex flex-shrink-0 justify-end pt-[3px] pr-[12px] select-none opacity-0 group-hover:opacity-100 transition-opacity"><span class="text-[0.625rem] text-[var(--text-secondary)] font-medium leading-[22px]">${dO.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:P.sendSeconds?'2-digit':undefined})}</span></div><div class="flex-1 min-w-0 pr-4 pl-[3px]">${flC}</div></div>`;
+    else{
+        const mem=m.member||{}, nm=mem.nick||m.author.global_name||m.author.username, aU=mem.avatar?`https://cdn.discordapp.com/guilds/${cCh.guild_id}/users/${m.author.id}/avatars/${mem.avatar}.png?size=64`:m.author.avatar?`https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64`:`https://cdn.discordapp.com/embed/avatars/${m.author.discriminator%5}.png`, dU=m.author.avatar_decoration_data?`<img src="https://cdn.discordapp.com/avatar-decoration-presets/${m.author.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">`:'',
+        tS=`${dO.getFullYear()} ${('0'+(dO.getMonth()+1)).slice(-2)}/${('0'+dO.getDate()).slice(-2)} ${('0'+dO.getHours()).slice(-2)}:${('0'+dO.getMinutes()).slice(-2)}${P.sendSeconds?':'+('0'+dO.getSeconds()).slice(-2):''}`, uD=P.showMeYourName?`<span class="ml-1 text-[0.8em] font-medium text-[var(--text-secondary)] opacity-70">@${m.author.username}</span>`:'', bT=m.author.bot?`<span class="ml-1.5 bg-[#5865F2] text-white text-[0.625rem] px-1.5 rounded-[0.1875rem] py-[1px] font-medium align-middle relative -top-[1px]">BOT</span>`:''; let rH='';
+        if(m.referenced_message){const rm=m.referenced_message,rn=rm.author?.global_name||rm.author?.username||"Unknown",rA=rm.author?.avatar?`https://cdn.discordapp.com/avatars/${rm.author.id}/${rm.author.avatar}.png?size=16`:'https://cdn.discordapp.com/embed/avatars/0.png';rH=`<div class="flex items-center gap-1 ml-[72px] mb-[2px] opacity-70 text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit group/reply" onclick="scrM('${rm.id}')"><div class="reply-spine group-hover/reply:border-[var(--text-primary)] transition-colors"></div><img src="${rA}" class="w-4 h-4 rounded-full ml-2"><span class="font-bold mr-1 truncate max-w-[200px]">@${rn}</span><span class="truncate max-w-[300px] hover:underline">${pMd(rm.content)||'Content'}</span></div>`;}
+        el.innerHTML=`${rH}${!m.deleted?tB:''}<div class="flex items-start w-full relative"><div class="w-[72px] min-w-[72px] flex flex-shrink-0 items-start justify-center pt-0.5 pb-0"><div class="w-10 h-10 relative avatar-container flex-shrink-0 mt-0 cursor-pointer"><img src="${aU}" class="avatar-img shadow-sm hover:shadow-md transition-shadow rounded-full">${dU}</div></div><div class="flex-1 min-w-0 pr-4 pl-[3px] -mt-[2px]"><div class="flex items-baseline leading-tight mb-1"><span class="font-medium mr-1 cursor-pointer hover:underline text-[1rem]" ${mem.color?`style="color:#${mem.color.toString(16).padStart(6,'0')}"`:''}>${nm}</span>${uD}${bT}<span class="ml-2 text-[0.7rem] text-[var(--text-secondary)] opacity-80" title="${tS}">${tS}</span></div>${flC}</div></div>`;
+    } if(m.isFailed) el.insertAdjacentHTML('beforeend', `<div class="mt-1 ml-[72px] text-sm text-[var(--text-secondary)]"><div class="flex items-center gap-1 mb-1 text-red-400"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>送信エラー: ${m.error||'不明'}</div><div class="text-xs"> Clyde • あなただけに表示 • <span class="text-blue-400 cursor-pointer hover:underline" onclick="$('message-${m.id}').remove()">メッセージを削除</span></div></div>`);
+    const cT=el.querySelector('.message-body'); if(cT)cT.dataset.originalContent=m.content; return el;
+};
+const fVPA=c=>{let l=c.lastElementChild;while(l&&l.classList.contains('message-sending'))l=l.previousElementSibling;return l;};
+
+const sdMsg=async()=>{
+    if(!cCh||!cAcc)return; const ip=$('message-input'),cV=ip.value.trim(); if(!cV&&!aFils.length)return; if(cV.length>maxCh){ alert(`長すぎ (${cV.length}/${maxCh}) テキスト化。`); if(aFils.length<10)aFils.push(new File([new Blob([cV],{type:'text/plain'})],'message.txt',{type:'text/plain'}));else return alert('制限超過'); ip.value=''; }
+    const now=new Date(), nc=String(now.getTime()), mc=$('message-container'), pV=fVPA(mc); let ig=0;
+    if(pV&&pV.dataset.authorId===cAcc.id&&!pV.classList.contains('message-failed')&&!rpTo) ig=1;
+    const fM={id:`temp-${nc}`,author:cAcc,content:cV.length>maxCh?'':cV,timestamp:now.toISOString(),isSending:1,nonce:nc,attachments:aFils.map(f=>({url:'#',filename:f.name,content_type:f.type}))};
+    mc.appendChild(cME(fM,ig)); mc.scrollTop=mc.scrollHeight; ip.value=''; const fs=[...aFils]; aFils=[]; rAtL(); hInp(); cRp();
+    const bd=new FormData(); bd.append('payload_json',JSON.stringify({content:fM.content,nonce:nc,message_reference:rpTo?{message_id:rpTo.messageId}:undefined})); fs.forEach((f,i)=>bd.append(`files[${i}]`,f));
+    const r=await api(cAcc.token, `/channels/${cCh.id}/messages`, 'POST', bd, 1); if(r.error) { const er=$(`[data-nonce="${nc}"]`); if(er)er.replaceWith(cME({...fM, isSending:0, isFailed:1, error:r.error.message}, er.classList.contains('grouped'))); }
+};
+const hInp=()=>{ const i=$('message-input'), s=$('send-button'), c=$('char-counter'), l=i.value.length; i.style.height='auto'; i.style.height=(i.scrollHeight)+'px'; s.disabled=(l===0&&aFils.length===0); if(P.showCharacter){c.classList.remove('opacity-0');c.textContent=`${l} / ${maxCh}`;c.style.color=l>maxCh?'#ed4245':'var(--text-secondary)';}else c.classList.add('opacity-0'); };
+
+const cWS=()=>{
+    if(!cAcc)return; if(ws)ws.close(); ws=new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
+    ws.onmessage=e=>{ const d=JSON.parse(e.data); if(d.s)lSeq=d.s;
+        if(d.op===10){ if(hbIvl)clearInterval(hbIvl); hbIvl=setInterval(()=>ws.send(JSON.stringify({op:1,d:lSeq})), d.d.heartbeat_interval); ws.send(JSON.stringify({op:2,d:{token:cAcc.token,properties:{$os:"linux",$browser:"disco",$device:"disco"}}})); }
+        else if(d.t==='READY'){ if(d.d.user_settings?.guild_folders){gFols=d.d.user_settings.guild_folders; if(gFols.length)rFls();} }
+        else if(d.t==='MESSAGE_CREATE') {
+            if(d.d.channel_id===cCh?.id){ const c=$('message-container');
+                if(d.d.nonce){ const o=c.querySelector(`[data-nonce="${d.d.nonce}"]`); if(o){ o.replaceWith(cME(d.d, o.classList.contains('grouped'))); if(d.d.author.id===cAcc.id||c.scrollHeight-c.scrollTop-c.clientHeight<100)c.scrollTop=c.scrollHeight; return; } }
+                const l=fVPA(c); let g=0; if(l&&l.dataset.authorId===d.d.author.id&&!d.d.referenced_message&&d.d.type===0&&!l.querySelector('.reply-spine'))g=1;
+                c.appendChild(cME(d.d,g)); if(d.d.author.id===cAcc.id||c.scrollHeight-c.scrollTop-c.clientHeight<100)c.scrollTop=c.scrollHeight; }
+        } else if(d.t==='MESSAGE_UPDATE') {
+            if(P.messageLogger&&d.d.id&&mSt[d.d.id]){ const o=mSt[d.d.id]; if(d.d.content&&o.content!==d.d.content){ eMSt[d.d.id]=(eMSt[d.d.id]||"")+`<div class="history-line">${pMd(o.content)}</div>`; mSt[d.d.id]={...o,...d.d}; const el=$(`message-${d.d.id}`); if(el)el.replaceWith(cME(mSt[d.d.id], el.classList.contains('grouped'))); } }
+        } else if(d.t==='MESSAGE_DELETE') { const i=d.d.id; if(mSt[i]&&P.messageLogger){ mSt[i].deleted=1; const el=$(`message-${i}`); if(el)el.replaceWith(cME(mSt[i],el.classList.contains('grouped'))); }else{ const el=$(`message-${i}`); if(el)el.remove(); } }
+    }; ws.onclose=()=>setTimeout(cWS,5000);
+};
+
+const delM=async(i,e)=>{ if(e.shiftKey||confirm("削除?")) await api(cAcc.token, `/channels/${cCh.id}/messages/${i}`, 'DELETE'); };
+const sEd=i=>{ const el=$(`message-${i}`); if(!el)return; const ct=el.querySelector('.message-body'); if(!ct)return; const o=ct.dataset.originalContent||""; ct.innerHTML=`<textarea class="input-field w-full p-2 bg-[var(--bg-tertiary)] rounded outline-none h-auto border border-blue-500" rows="3">${o}</textarea><div class="text-xs mt-1 text-[var(--text-link)] opacity-80">Enter保存 - Esc取消</div>`; const t=ct.querySelector('textarea'); t.focus(); t.onkeydown=async e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); await api(cAcc.token, `/channels/${cCh.id}/messages/${i}`,'PATCH',{content:t.value});}else if(e.key==='Escape'){const m=mSt[i]; if(m)el.replaceWith(cME(m, el.classList.contains('grouped')));}}; };
+const sRp=m=>{ rpTo={messageId:m.id,author:m.author}; shw($('reply-bar')); $('reply-username').innerText=m.author.global_name||m.author.username; $('message-input').focus(); };
+const cRp=()=>{ rpTo=null; hdn($('reply-bar')); };
+const scrM=i=>{ const el=$(`message-${i}`); if(el){el.scrollIntoView({behavior:'auto',block:'center'});el.style.backgroundColor='rgba(250, 233, 105, 0.3)'; setTimeout(()=>el.style.backgroundColor='', 1500);} };
+const swST=t=>{ $$('.settings-tab-item').forEach(x=>x.classList.remove('active')); $(`tab-btn-${t}`).classList.add('active'); hdn($('tab-content-plugins')); hdn($('tab-content-general')); shw($(`tab-content-${t}`),'block'); };
+const rSM=()=>{ swST('plugins'); const l=$('plugin-list'); l.innerHTML='';
+    [{k:'clickAction',n:'Double Click Reply',d:'ダブルクリックで返信'},{k:'showMeYourName',n:'Show Me Your Name',d:'横に@username表示'},{k:'sendSeconds',n:'SendSeconds',d:'秒数まで表示'},{k:'messageLogger',n:'MessageLogger',d:'履歴を保持'},{k:'showCharacter',n:'Show Character Count',d:'文字数を表示'},{k:'serverInfo',n:'ServerInfo',d:'右クリ詳細表示'}].forEach(p=>{ const x=cE('div'); x.className="plugin-item"; x.innerHTML=`<div><div class="font-bold text-[var(--text-primary)]">${p.n}</div><div class="text-xs text-[var(--text-secondary)] mt-0.5">${p.d}</div></div><label class="switch"><input type="checkbox" ${P[p.k]?'checked':''}><span class="slider"></span></label>`; x.querySelector('input').onchange=e=>{P[p.k]=e.target.checked;_L.setItem('plugins',JSON.stringify(P));hInp();}; l.appendChild(x); });
+    l.innerHTML+=`<a href="https://github.com/Bloxd-H/discord_lite" target="_blank" class="text-xs text-blue-500 hover:underline block mt-4 text-center">GitHub Repository</a>`; const tc=_L.theme||'dark'; $('theme-check-dark').classList.toggle('hidden',tc!=='dark'); $('theme-check-light').classList.toggle('hidden',tc!=='light'); shw($('settings-modal'));
+};
+const sTh=m=>{ if(m==='dark'){document.documentElement.classList.add('dark');_L.theme='dark';}else{document.documentElement.classList.remove('dark');_L.theme='light';} const t=_L.theme||'dark'; $('theme-check-dark').classList.toggle('hidden',t!=='dark'); $('theme-check-light').classList.toggle('hidden',t!=='light'); };
+
+const shSIf=async s=>{
+    let mo=$('server-info-modal'); if(!mo){ mo=cE('div'); mo.id='server-info-modal'; mo.className='fixed inset-0 z-[99999] flex justify-center items-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-200'; document.body.appendChild(mo); mo.onclick=e=>{if(e.target===mo){mo.classList.remove('opacity-100'); setTimeout(()=>mo.remove(),200);}}; }
+    mo.innerHTML='<div class="loader text-white w-10 h-10 border-4"></div>'; requestAnimationFrame(()=>mo.classList.add('opacity-100'));
+    let mI, si=s, [sr,mr]=await Promise.all([api(cAcc.token, `/guilds/${s.id}?with_counts=true`), api(cAcc.token, `/users/@me/guilds/${s.id}/member`)]);
+    if(!sr.error)si=sr.data; if(!mr.error)mI=mr.data;
+    const fD=d=>{ if(!d)return'-'; const a=new Date(d); return `${a.getFullYear()}/${('0'+(a.getMonth()+1)).slice(-2)}/${('0'+a.getDate()).slice(-2)} ${('0'+a.getHours()).slice(-2)}:${('0'+a.getMinutes()).slice(-2)}`; };
+    const ca=fD(Number((BigInt(s.id)>>22n)+1420070400000n)), ja=mI?.joined_at?fD(mI.joined_at):'-', vn=si.vanity_url_code||'-', bU=si.banner?`https://cdn.discordapp.com/banners/${s.id}/${si.banner}.png?size=1024`:'', spU=si.splash?`https://cdn.discordapp.com/splashes/${s.id}/${si.splash}.png?size=1024`:(si.discovery_splash?`https://cdn.discordapp.com/discovery-splashes/${s.id}/${si.discovery_splash}.png?size=1024`:''), hi=bU||spU;
+    mo.innerHTML=`<div class="bg-[var(--bg-secondary)] rounded-lg shadow-2xl w-[600px] max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden relative" style="animation: scaleUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);"><button class="absolute top-4 right-4 text-white hover:text-gray-200 z-10 drop-shadow-md bg-black/40 rounded-full p-1" onclick="this.parentElement.parentElement.classList.remove('opacity-100');setTimeout(()=>this.parentElement.parentElement.remove(),200)"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>${hi?`<div class="w-full h-[240px] bg-[var(--bg-tertiary)]"><img src="${hi}" class="w-full h-full object-cover"></div>`:`<div class="w-full h-[100px] bg-[var(--button-bg)]"></div>`}<div class="p-6 pt-4 flex-1 overflow-y-auto"><div class="flex border-b border-[var(--border-color)] mb-4 pb-2 text-sm font-bold text-[var(--text-secondary)]"><div class="mr-4 text-[var(--text-link)] border-b-2 border-[var(--text-link)] pb-2 -mb-[9px]">Server Info</div></div><div class="grid grid-cols-3 gap-y-6 gap-x-4 text-sm text-[var(--text-primary)]"><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Server Owner</div><div id="server-owner-text" class="font-bold flex items-center bg-[var(--mention-bg)] text-[var(--mention-fg)] rounded px-1 w-fit py-0.5 break-all text-xs">@${si.owner_id||'-'}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Created At</div><div class="font-bold text-xs">${ca}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Joined At</div><div class="font-bold text-xs">${ja}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Vanity Link</div><div class="font-bold text-[var(--text-link)] cursor-pointer hover:underline text-xs" onclick="cTst('${vn!=='-'?`https://discord.gg/${vn}`:''}','Vanity')">${vn!=='-'?`discord.gg/${vn}`:'-'}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Preferred Locale</div><div class="font-bold uppercase text-xs">${si.preferred_locale||'-'}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Verification</div><div class="font-bold text-xs">${['None','Low','Med','High','Max'][si.verification_level]||si.verification_level||'0'}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Boosts</div><div class="font-bold text-xs">${si.premium_subscription_count||0} (Lv ${si.premium_tier||0})</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Channels</div><div class="font-bold text-xs">${si.channels?.length||(si.approximate_member_count!==undefined?'取得済':'不明')}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Roles</div><div class="font-bold text-xs">${si.roles?.length||'-'}</div></div>${si.approximate_member_count?`<div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Members</div><div class="font-bold text-xs">${si.approximate_member_count}</div></div><div><div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Online</div><div class="font-bold text-xs">${si.approximate_presence_count||0}</div></div>`:''}</div><div class="mt-6 flex flex-wrap gap-4 text-xs font-bold text-[var(--text-link)]">${si.icon?`<a href="https://cdn.discordapp.com/icons/${s.id}/${si.icon}.png?size=1024" target="_blank" class="hover:underline">Icon</a>`:''}${bU?`<a href="${bU}" target="_blank" class="hover:underline">Banner</a>`:''}${spU?`<a href="${spU}" target="_blank" class="hover:underline">Splash</a>`:''}</div></div></div><style>@keyframes scaleUp{from{transform:scale(.95);opacity:0;}to{transform:scale(1);opacity:1;}}</style>`;
+    if(si.owner_id){api(cAcc.token, `/users/${si.owner_id}`).then(o=>{if(!o.error&&$('server-owner-text'))$('server-owner-text').innerText=`@${o.data.username}`;});}
+};
+
+addEventListener('DOMContentLoaded',()=>{
+    if(_L.theme==='dark'||(!_L.theme&&matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+    document.onclick=()=>hdn($('custom-context-menu'));
+    document.body.onpaste=e=>{ if(e.clipboardData.files.length){e.preventDefault(); hdFl(e.clipboardData.files);}};
+    document.ondragenter=e=>{ e.preventDefault(); dCnt++; document.body.classList.add('dragging'); };
+    document.ondragleave=e=>{ e.preventDefault(); dCnt--; if(!dCnt)document.body.classList.remove('dragging'); };
+    document.ondragover=e=>e.preventDefault();
+    document.ondrop=e=>{ e.preventDefault(); dCnt=0; document.body.classList.remove('dragging'); if(e.dataTransfer.files.length) hdFl(e.dataTransfer.files); };
+    $('show-add-account-form-btn').onclick=()=>shTkI(); $('back-to-accounts-btn').onclick=()=>shLg();
+    $('dm-icon').onclick=ldDs; $('send-button').onclick=sdMsg; $('attach-button').onclick=()=>$('file-input').click();
+    $('file-input').onchange=e=>{ if(e.target.files.length)hdFl(e.target.files); };
+    $('cancel-reply-btn').onclick=cRp; const ip=$('message-input'); ip.oninput=hInp;
+    ip.onkeydown=e=>{ if(e.isComposing)return; if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); sdMsg();} else if(e.key==='ArrowUp'&&!ip.value){ e.preventDefault(); const c=[...$$('.message-group')].reverse().find(a=>a.dataset.authorId===cAcc.id&&!a.classList.contains('message-failed')&&!a.classList.contains('message-sending')); if(c)sEd(c.id.replace('message-','')); } };
+    $('back-to-channels-btn').onclick=sSb; $('add-account-switcher-btn').onclick=()=>{ hdn($('account-switcher')); shLg(); };
+    window.onresize=hRz; const a=gtAc(), i=gtAId(); (a.length&&i)?swAc(i):shLg();
 });
-
-function handleFiles(files) { if(attachedFiles.length >= 10) return alert('ファイルは10個までです'); for (const f of files) if(attachedFiles.length < 10) attachedFiles.push(f); renderAttachmentList(); handleInput(); }
-function renderAttachmentList() {
-    const list = document.getElementById('attachment-list'); list.innerHTML = '';
-    if (attachedFiles.length === 0) { list.classList.add('hidden'); return; }
-    list.classList.remove('hidden'); attachedFiles.forEach((f, idx) => {
-        const el = document.createElement('div'); el.className = "bg-[var(--bg-tertiary)] rounded px-2 py-1 text-xs flex items-center gap-2 border border-[var(--border-color)]";
-        el.innerHTML = `<span class="truncate max-w-[150px]">${f.name}</span> <button class="text-red-500 font-bold hover:text-red-700">×</button>`;
-        el.querySelector('button').onclick = () => { attachedFiles.splice(idx, 1); renderAttachmentList(); handleInput(); }; list.appendChild(el);
-    });
-}
-
-function showContextMenuForCopyAndIDs(e, originalText, authId) {
-    const selectedText = document.getSelection().toString().trim();
-    contextMenuData.text = selectedText ? selectedText : originalText;
-    contextMenuData.authorId = authId || "Unknown";
-    showContextMenuAt(e, (menu) => {
-        menu.appendChild(createMenuButton("メッセージ全体をコピー", `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`, () => copyAndToast(contextMenuData.text, "メッセージテキスト")));
-        menu.appendChild(createMenuSeparator());
-        menu.appendChild(createMenuButton("発言者のユーザーIDをコピー", `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>`, () => copyAndToast(contextMenuData.authorId, "ユーザーID")));
-    });
-}
-
-function showServerContextMenu(e, s) {
-    showContextMenuAt(e, (menu) => {
-        menu.appendChild(createMenuButton("サーバーIDをコピー", `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path></svg>`, () => copyAndToast(s.id, "サーバーID")));
-        
-        if (plugins.serverInfo) {
-            menu.appendChild(createMenuSeparator());
-            menu.appendChild(createMenuButton("サーバー情報を表示", `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`, () => showServerInfoModal(s)));
-        }
-
-        menu.appendChild(createMenuSeparator());
-        menu.appendChild(createMenuButton("サーバーを脱退", `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>`, () => leaveServer(s), "text-red-500 hover:!bg-red-500"));
-    });
-}
-
-function leaveServer(s) {
-    if (confirm(`本当に ${s.name} から脱退しますか？`)) {
-        apiRequest(currentAccount.token, `/users/@me/guilds/${s.id}`, 'DELETE').then(() => {
-            showToast(`${s.name} を脱退しました`);
-            loadGuilds();
-            if (currentChannel && currentChannel.guild_id === s.id) loadDms();
-        });
-    }
-}
-
-async function showServerInfoModal(s) {
-    const sId = s.id;
-    let sInfo = s; 
-    let mInfo = null;
-
-    let modal = document.getElementById('server-info-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'server-info-modal';
-        modal.className = 'fixed inset-0 z-[99999] flex justify-center items-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-200';
-        document.body.appendChild(modal);
-        modal.addEventListener('click', (e) => {
-            if(e.target === modal) { modal.classList.remove('opacity-100'); setTimeout(()=>modal.remove(), 200); }
-        });
-    }
-    
-    modal.innerHTML = '<div class="loader text-white w-10 h-10 border-4"></div>';
-    requestAnimationFrame(() => modal.classList.add('opacity-100'));
-
-    const res = await apiRequest(currentAccount.token, `/guilds/${sId}?with_counts=true`);
-    if (!res.error) sInfo = res.data;
-    
-    const memRes = await apiRequest(currentAccount.token, `/users/@me/guilds/${sId}/member`);
-    if (!memRes.error) mInfo = memRes.data;
-
-    const formatDate = (date) => {
-        if (!date) return '-';
-        const d = new Date(date);
-        return `${d.getFullYear()}/${('0'+(d.getMonth()+1)).slice(-2)}/${('0'+d.getDate()).slice(-2)} ${('0'+d.getHours()).slice(-2)}:${('0'+d.getMinutes()).slice(-2)}:${('0'+d.getSeconds()).slice(-2)}`;
-    };
-
-    const createdAt = formatDate(Number((BigInt(sId) >> 22n) + 1420070400000n));
-    const joinedAt = mInfo && mInfo.joined_at ? formatDate(mInfo.joined_at) : '-';
-    const vanity = sInfo.vanity_url_code || '-';
-    
-    const bannerUrl = sInfo.banner ? `https://cdn.discordapp.com/banners/${sId}/${sInfo.banner}.png?size=1024` : '';
-    const splashUrl = sInfo.splash ? `https://cdn.discordapp.com/splashes/${sId}/${sInfo.splash}.png?size=1024` : (sInfo.discovery_splash ? `https://cdn.discordapp.com/discovery-splashes/${sId}/${sInfo.discovery_splash}.png?size=1024` : '');
-    
-    const headerImgUrl = bannerUrl || splashUrl;
-
-    const contentHtml = `
-    <div class="bg-[var(--bg-secondary)] rounded-lg shadow-2xl w-[600px] max-w-[90vw] max-h-[90vh] flex flex-col overflow-hidden relative" style="animation: scaleUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-        <button class="absolute top-4 right-4 text-white hover:text-gray-200 z-10 drop-shadow-md bg-black/40 rounded-full p-1" onclick="document.getElementById('server-info-modal').classList.remove('opacity-100'); setTimeout(()=>document.getElementById('server-info-modal').remove(), 200);">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-        ${headerImgUrl ? `<div class="w-full h-[240px] bg-[var(--bg-tertiary)]"><img src="${headerImgUrl}" class="w-full h-full object-cover"></div>` : `<div class="w-full h-[100px] bg-[var(--button-bg)]"></div>`}
-        
-        <div class="p-6 pt-4 flex-1 overflow-y-auto">
-            <div class="flex border-b border-[var(--border-color)] mb-4 pb-2 text-sm font-bold text-[var(--text-secondary)]">
-                <div class="mr-4 text-[var(--text-link)] border-b-2 border-[var(--text-link)] pb-2 -mb-[9px]">Server Info</div>
-            </div>
-            
-            <div class="grid grid-cols-3 gap-y-6 gap-x-4 text-sm text-[var(--text-primary)]">
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Server Owner</div>
-                    <div id="server-owner-text" class="font-bold flex items-center bg-[var(--mention-bg)] text-[var(--mention-fg)] rounded px-1 w-fit py-0.5 break-all text-xs">@${sInfo.owner_id || '-'}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Created At</div>
-                    <div class="font-bold text-xs">${createdAt}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Joined At</div>
-                    <div class="font-bold text-xs">${joinedAt}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Vanity Link</div>
-                    <div class="font-bold text-[var(--text-link)] cursor-pointer hover:underline text-xs" onclick="copyAndToast('${vanity !== '-' ? `https://discord.gg/${vanity}` : ''}', 'Vanity URL')">${vanity !== '-' ? `discord.gg/${vanity}` : '-'}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Preferred Locale</div>
-                    <div class="font-bold uppercase text-xs">${sInfo.preferred_locale || '-'}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Verification Level</div>
-                    <div class="font-bold text-xs">${['None', 'Low', 'Medium', 'High', 'Very High'][sInfo.verification_level] || sInfo.verification_level || '0'}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Server Boosts</div>
-                    <div class="font-bold text-xs">${sInfo.premium_subscription_count || 0} (Level ${sInfo.premium_tier || 0})</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Channels</div>
-                    <div class="font-bold text-xs">${sInfo.channels?.length || sInfo.approximate_member_count !== undefined ? '取得済' : '不明'} (概算不可)</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Roles</div>
-                    <div class="font-bold text-xs">${sInfo.roles?.length || '-'}</div>
-                </div>
-                ${sInfo.approximate_member_count ? `
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Members</div>
-                    <div class="font-bold text-xs">${sInfo.approximate_member_count}</div>
-                </div>
-                <div>
-                    <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Online</div>
-                    <div class="font-bold text-xs">${sInfo.approximate_presence_count || 0}</div>
-                </div>` : ''}
-            </div>
-
-            <div class="mt-6 flex flex-wrap gap-4 text-xs font-bold text-[var(--text-link)]">
-                ${sInfo.icon ? `<a href="https://cdn.discordapp.com/icons/${sId}/${sInfo.icon}.png?size=1024" target="_blank" class="hover:underline">Icon Image</a>` : ''}
-                ${bannerUrl ? `<a href="${bannerUrl}" target="_blank" class="hover:underline">Banner Image</a>` : ''}
-                ${splashUrl ? `<a href="${splashUrl}" target="_blank" class="hover:underline">Splash Image</a>` : ''}
-            </div>
-        </div>
-    </div>
-    <style>@keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }</style>
-    `;
-    modal.innerHTML = contentHtml;
-
-    if(sInfo.owner_id) {
-        apiRequest(currentAccount.token, `/users/${sInfo.owner_id}`).then(ownerRes => {
-            if(!ownerRes.error && document.getElementById('server-owner-text')) {
-                document.getElementById('server-owner-text').innerText = `@${ownerRes.data.username}`;
-            }
-        });
-    }
-}
-
-const getAccounts = () => JSON.parse(localStorage.getItem('accounts')) ||[];
-const saveAccounts = a => localStorage.setItem('accounts', JSON.stringify(a)); const getActiveAccountId = () => localStorage.getItem('activeAccountId'); const setActiveAccountId = id => localStorage.setItem('activeAccountId', id);
-
-async function apiRequest(token, path, method = 'GET', body = null, isFormData = false) {
-    const opts = { method, headers: { 'Authorization': token, 'X-Super-Properties': btoa(JSON.stringify({os:"Windows",browser:"Chrome",system_locale:"ja"})) } };
-    if (body) { if (isFormData) opts.body = body; else { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; } }
-    try {
-        const r = await fetch(`${API_BASE}${path}`, opts); if (r.status === 401) return { error: { message: "Unauthorized" }, status: 401 }; const data = r.status === 204 ? {} : await r.json(); if (!r.ok) return { error: data, status: r.status }; return { data, status: r.status };
-    } catch (e) { return { error: { message: "Network error" }, status: 0 }; }
-}
-
-function cleanupState() {
-    if (ws) { ws.onclose = null; ws.close(); ws = null; } currentChannel = null; attachedFiles =[]; if (heartbeatInterval) clearInterval(heartbeatInterval); document.getElementById('guild-list').innerHTML = ''; document.getElementById('channel-list').innerHTML = ''; document.getElementById('message-container').innerHTML = ''; document.getElementById('guild-name').innerText = '';
-    messageStore = {}; guildFolders =[]; guildDataMap.clear(); editedMessages = {}; pingCounts = {}; cancelReply(); renderAttachmentList();
-}
-
-function switchAccount(id) {
-    cleanupState(); setActiveAccountId(id); const accounts = getAccounts(); const account = accounts.find(a => a.id === id); if (!account) { showLoginScreen(); return; }
-    currentAccount = account; maxCharCount = (currentAccount.premium_type === 2) ? 4000 : 2000; document.getElementById('token-input').value = ''; updateView('app'); renderCurrentUserPanel(); loadGuilds(); setTimeout(connectWS, 100);
-}
-
-function updateView(viewName) {
-    const authSection = document.getElementById('auth-section'); const mainApp = document.getElementById('main-app');
-    if (viewName === 'auth') { authSection.classList.remove('hidden'); authSection.classList.add('flex'); mainApp.classList.add('hidden'); mainApp.classList.remove('flex');
-    } else if (viewName === 'app') { authSection.classList.add('hidden'); authSection.classList.remove('flex'); mainApp.classList.remove('hidden'); mainApp.classList.add('flex'); if (window.innerWidth < 768) showSidebarView(); }
-}
-
-function showLoginScreen(reloginAccount = null) {
-    cleanupState(); updateView('auth'); document.getElementById('migration-view').classList.add('hidden'); document.getElementById('token-input-view').classList.add('hidden'); renderSavedAccountsList();
-    if (getAccounts().length > 0 && !reloginAccount) { document.getElementById('account-selection-view').classList.remove('hidden'); document.getElementById('account-selection-view').classList.add('flex'); } else showTokenInput(reloginAccount);
-}
-
-function showTokenInput(account) {
-    document.getElementById('account-selection-view').classList.add('hidden'); document.getElementById('account-selection-view').classList.remove('flex'); document.getElementById('token-input-view').classList.remove('hidden'); document.getElementById('token-input-view').classList.add('flex'); document.getElementById('token-input').value = '';
-    const userInfo = document.getElementById('relogin-user-info');
-    if (account) {
-        document.getElementById('auth-title').innerText = '再ログイン'; userInfo.classList.remove('hidden'); userInfo.classList.add('flex'); document.getElementById('relogin-name').innerText = account.global_name || account.username; document.getElementById('relogin-username').innerText = account.username; document.getElementById('relogin-avatar').src = account.avatar ? `https://cdn.discordapp.com/avatars/${account.id}/${account.avatar}.png?size=128` : `https://cdn.discordapp.com/embed/avatars/${account.discriminator % 5}.png`;
-        document.getElementById('token-label').innerText = '新しいトークン'; document.getElementById('add-account-button-text').innerText = 'アカウントを更新'; document.getElementById('add-account-button').onclick = () => addAccount(document.getElementById('token-input').value, account.id);
-    } else {
-        document.getElementById('auth-title').innerText = 'アカウントを追加'; userInfo.classList.add('hidden'); userInfo.classList.remove('flex'); document.getElementById('token-label').innerText = 'トークン'; document.getElementById('add-account-button-text').innerText = 'ログイン'; document.getElementById('add-account-button').onclick = () => addAccount(document.getElementById('token-input').value);
-    }
-}
-
-function handleResize() { if (window.innerWidth >= 768) { showChatView(); document.getElementById('sidebar-view').classList.remove('hidden'); } else if (currentChannel) { showChatView(); } else { showSidebarView(); } }
-function showSidebarView() { document.getElementById('sidebar-view').classList.remove('hidden'); document.getElementById('chat-section').classList.add('hidden'); }
-function showChatView() { document.getElementById('sidebar-view').classList.add('hidden'); document.getElementById('chat-section').classList.remove('hidden'); document.getElementById('chat-section').classList.add('flex'); }
-
-function renderSavedAccountsList() {
-    const list = document.getElementById('saved-accounts-list'); list.innerHTML = '';
-    getAccounts().forEach(acc => {
-        const div = document.createElement('div'); div.className = "flex items-center gap-3 p-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"; div.style.borderColor = 'var(--border-color)';
-        const avatar = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`;
-        div.innerHTML = `<img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300"><div class="flex-1 min-w-0"><div class="font-bold truncate">${acc.global_name || acc.username}</div><div class="text-xs text-[var(--text-secondary)] truncate">@${acc.username}</div></div><div class="delete-btn p-2 text-gray-400 hover:text-red-500 rounded-full" title="削除"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></div>`;
-        div.onclick = (e) => { if (e.target.closest('.delete-btn')) return; switchAccount(acc.id); }; div.querySelector('.delete-btn').onclick = (e) => deleteAccount(acc.id, e); list.appendChild(div);
-    });
-}
-
-function renderCurrentUserPanel() {
-    if (!currentAccount) return;
-    document.getElementById('current-user-name').textContent = currentAccount.global_name || currentAccount.username; document.getElementById('current-user-subtext').textContent = `@${currentAccount.username}`;
-    const av = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${currentAccount.discriminator % 5}.png`; let deco = currentAccount.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${currentAccount.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : ''; document.getElementById('current-user-avatar-container').innerHTML = `<img src="${av}" class="avatar-img shadow-sm rounded-full">${deco}`; renderAccountSwitcher();
-}
-function renderAccountSwitcher() {
-    const list = document.getElementById('account-list'); const activeId = getActiveAccountId();
-    list.innerHTML = getAccounts().map(acc => {
-        const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`; const isActive = acc.id === activeId;
-        return `<div class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white group" onclick="switchAccount('${acc.id}')">
-            <img src="${av}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${acc.global_name || acc.username}</span> ${isActive ? '<div class="w-2 h-2 rounded-full bg-green-500"></div>' : ''} <div onclick="deleteAccount('${acc.id}',event)" title="削除" class="hidden group-hover:block p-1 hover:bg-black/20 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></div>
-        </div>`;
-    }).join('');
-}
-
-function createServerIconElement(s, isInFolder = false) {
-    let el = document.createElement('div'); el.id = `guild-${s.id}`; el.className = 'server-icon group ' + (isInFolder ? 'in-folder' : ''); el.title = s.name; el.onclick = () => loadChannels(s, el);
-    el.addEventListener('contextmenu', (e) => showServerContextMenu(e, s));
-    if (s.icon) el.innerHTML = `<img src="https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=128" class="object-cover w-full h-full transition-all group-hover:rounded-2xl rounded-[50%]">`; else el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-700 text-white font-bold text-sm transition-all group-hover:rounded-2xl rounded-[50%]">${s.name.substring(0, 2)}</div>`;
-    return el;
-}
-
-function renderFolders() {
-    const list = document.getElementById('guild-list'); list.innerHTML = '';
-    guildFolders.forEach(item => {
-        if (!item.guild_ids || item.guild_ids.length === 0) return;
-        if (item.id) {
-            const wrap = document.createElement('div'); wrap.className = 'server-folder-wrapper flex flex-col items-center gap-2 w-full transition-all'; wrap.id = `folder-${item.id}`;
-            const guilds = item.guild_ids.map(id => guildDataMap.get(id)).filter(Boolean); if (guilds.length === 0) return;
-            const header = document.createElement('div'); header.className = 'folder-closed group'; 
-            const makeGrid = () => { header.innerHTML = ''; guilds.slice(0,4).forEach(g => { const i = document.createElement('img'); i.className = 'folder-icon-thumb'; i.src = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/0.png`; header.appendChild(i); }); }
-            makeGrid(); let color = 'rgba(88, 101, 242, 0.4)'; if (item.color) { const r=(item.color>>16)&255; const g=(item.color>>8)&255; const b=item.color&255; color = `rgba(${r},${g},${b},0.4)`; }
-            header.style.backgroundColor = color;
-            const contentDiv = document.createElement('div'); contentDiv.className = 'hidden flex-col gap-2 items-center w-full transition-all py-1'; guilds.forEach(g => contentDiv.appendChild(createServerIconElement(g, true)));
-            header.onclick = () => { if (openFolderId === item.id) { openFolderId = null; contentDiv.classList.add('hidden'); contentDiv.classList.remove('flex'); header.classList.remove('folder-opened'); header.classList.add('folder-closed'); header.style.backgroundColor = color; makeGrid(); } else { if (openFolderId) { const p = document.querySelector(`#folder-${openFolderId} .folder-opened`); if (p) p.click(); } openFolderId = item.id; contentDiv.classList.remove('hidden'); contentDiv.classList.add('flex'); header.classList.remove('folder-closed'); header.classList.add('folder-opened'); header.innerHTML = `<div class="text-white opacity-80 w-6 h-6"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 7H12L10 5H4C2.9 5 2.01 5.9 2.01 7L2 19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V9C22 7.9 21.1 7 20 7Z"/></svg></div>`; header.style.backgroundColor = 'rgba(88, 101, 242, 0.3)'; } };
-            wrap.appendChild(header); wrap.appendChild(contentDiv); list.appendChild(wrap);
-        } else item.guild_ids.forEach(gid => { const s = guildDataMap.get(gid); if (s) list.appendChild(createServerIconElement(s)); });
-    });
-}
-
-async function loadGuilds() {
-    if (!currentAccount) return; const res = await apiRequest(currentAccount.token, '/users/@me/guilds'); if (res.error) { if (res.status === 401) showLoginScreen(currentAccount); return; }
-    guildDataMap.clear(); res.data.forEach(s => guildDataMap.set(s.id, s));
-    if (guildFolders.length > 0) renderFolders(); 
-    else { const list = document.getElementById('guild-list'); list.innerHTML = ''; res.data.forEach(s => list.appendChild(createServerIconElement(s))); }
-}
-
-async function loadDms() {
-    if (!currentAccount) return; document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); document.getElementById('dm-icon').classList.add('active'); document.getElementById('guild-name').innerText = 'Direct Messages';
-    const res = await apiRequest(currentAccount.token, '/users/@me/channels'); if (res.error) return;
-    const list = document.getElementById('channel-list'); list.innerHTML = ''; const dms = res.data.sort((a,b) => (b.last_message_id||0) - (a.last_message_id||0));
-    
-    dms.forEach(dm => {
-        const div = document.createElement('div'); div.className = "channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center";
-        let icon = '<span class="text-xl mr-2 text-[var(--text-secondary)]">@</span>', name = "DM";
-        if(dm.recipients && dm.recipients[0]) {
-            const user = dm.recipients[0]; const av = user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png';
-            icon = `<img src="${av}" class="w-5 h-5 mr-2 rounded-full">`;
-            name = user.global_name ? `${user.global_name} (${user.username})` : user.username;
-        }
-        div.innerHTML = `${icon}<span>${name}</span>`; div.onclick = () => selectChannel(dm);
-        list.appendChild(div);
-    });
-}
-
-async function loadChannels(g, element) {
-    if (!currentAccount) return; document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); if (element) element.classList.add('active'); document.getElementById('guild-name').innerText = g.name;
-    const res = await apiRequest(currentAccount.token, `/guilds/${g.id}/channels`); if (res.error) return;
-    const list = document.getElementById('channel-list'); list.innerHTML = ''; const channels = res.data; const grouped = channels.reduce((acc, ch) => { (acc[ch.parent_id || 'null'] = acc[ch.parent_id || 'null'] ||[]).push(ch); return acc; }, {}); Object.values(grouped).forEach(arr => arr.sort((a, b) => a.position - b.position));
-    
-    const renderChannelItem = (ch, catId = null) => {
-        if (![0, 5, 2].includes(ch.type)) return; const div = document.createElement('div'); div.id = `channel-${ch.id}`; div.className = `channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center relative ${catId ? 'channel-child-'+catId : ''}`; if(catId) div.classList.add('ml-3');
-        const icon = ch.type === 2 ? '<svg class="w-5 h-5 mr-1.5 opacity-60" fill="currentColor" viewBox="0 0 24 24"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zm-4 0a8.977 8.977 0 00-6.22 3.32l1.62 1.34C6.54 6.78 7.68 6 9 6c2.37 0 4.54 1.05 5.96 2.7l1.7-1.39A8.932 8.932 0 0010 3.23zM5.16 8.78L2.73 11.2a8.96 8.96 0 000 3.19l2.43 2.43 1.54-1.54-.78-.79c-.28-.56-.45-1.19-.45-1.87s.17-1.3.45-1.86l.78-.78-1.54-1.54z"></path></svg>' : '<span class="text-xl mr-2 text-[var(--text-secondary)] opacity-70">#</span>'; div.innerHTML = `${icon}<span class="${ch.type===2?'':'font-medium'}">${ch.name}</span>`;
-        if (ch.type !== 2) {
-             div.onclick = () => selectChannel(ch); div.oncontextmenu = (e) => { e.preventDefault(); copyAndToast(ch.id, "チャンネルID"); };
-        } else { div.classList.add('opacity-50', 'cursor-not-allowed'); }
-        list.appendChild(div);
-    };
-    
-    (grouped['null'] ||[]).forEach(ch => renderChannelItem(ch));
-    channels.filter(i => i.type === 4).sort((x, y) => x.position - y.position).forEach(cat => {
-        const h = document.createElement('div'); h.className = 'px-2 pt-4 pb-1 text-xs font-bold uppercase text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer flex items-center select-none group'; h.innerHTML = `<svg class="w-3 h-3 mr-1 category-arrow transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> ${cat.name}`;
-        h.onclick = () => toggleCategory(cat.id, h); list.appendChild(h); (grouped[cat.id] ||[]).forEach(ch => renderChannelItem(ch, cat.id));
-    });
-}
-
-function toggleCategory(catId, headerEl) {
-    const children = document.querySelectorAll(`.channel-child-${catId}`); const isCollapsed = headerEl.classList.contains('category-collapsed');
-    if (isCollapsed) { headerEl.classList.remove('category-collapsed'); children.forEach(c => c.classList.remove('channel-collapsed')); } else { headerEl.classList.add('category-collapsed'); children.forEach(c => c.classList.add('channel-collapsed')); }
-}
-
-async function selectChannel(ch) {
-    currentChannel = ch; oldestMessageId = null; isLoadingMore = false; cancelReply(); attachedFiles =[]; renderAttachmentList();
-    document.querySelectorAll('.channel-item.active').forEach(e => e.classList.remove('active')); const cE = document.getElementById(`channel-${ch.id}`); if (cE) cE.classList.add('active');
-    if (window.innerWidth < 768) showChatView();
-
-    let name = ch.name || 'DM'; if(ch.recipients && ch.recipients[0]) {
-         name = ch.recipients[0].global_name ? `${ch.recipients[0].global_name} (${ch.recipients[0].username})` : ch.recipients[0].username;
-    }
-    document.getElementById('channel-name-text').innerHTML = `<span class="text-[var(--text-secondary)] opacity-70 mr-1.5">#</span><span>${name}</span>`;
-    
-    const container = document.getElementById('message-container'); container.innerHTML = '<div class="w-full h-full flex items-center justify-center"><div class="loader"></div></div>'; handleInput(); 
-    const res = await apiRequest(currentAccount.token, `/channels/${ch.id}/messages?limit=50`);
-    container.innerHTML = '';
-    
-    if (res.error) { if (res.status === 401) showLoginScreen(currentAccount); container.innerHTML = `<div class="p-8 text-center text-red-500 font-bold">アクセス権限がありません</div>`; return; }
-
-    const msgs = res.data;
-    if (msgs.length > 0) {
-        oldestMessageId = msgs[msgs.length - 1].id; const fragment = document.createDocumentFragment(); const arr = msgs.slice().reverse();
-        arr.forEach((m, i) => {
-             if (plugins.messageLogger) messageStore[m.id] = m;
-             const prev = (i > 0) ? arr[i-1] : null; const isGrouped = prev && (prev.author.id === m.author.id) && !m.referenced_message && !m.webhook_id && !prev.webhook_id && m.type === 0 && prev.type === 0 && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
-             fragment.appendChild(createMessageElement(m, isGrouped));
-        });
-        container.appendChild(fragment); container.scrollTop = container.scrollHeight;
-    }
-}
-
-async function loadMoreMessages() {
-    if (isLoadingMore || !oldestMessageId || !currentChannel) return;
-    const container = document.getElementById('message-container'); if (container.scrollTop > 50) return;
-    isLoadingMore = true; const oldScrollHeight = container.scrollHeight;
-
-    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=50&before=${oldestMessageId}`);
-    if (res.data && res.data.length > 0) {
-        const messages = res.data; oldestMessageId = messages[messages.length - 1].id;
-        const fragment = document.createDocumentFragment(); const arr = messages.reverse();
-        let lastBatchAuthId = null; let lastBatchTimestamp = 0;
-        arr.forEach((m, index) => {
-            if (plugins.messageLogger) messageStore[m.id] = m; let isGrouped = false;
-            if (index > 0) { const timeDiff = new Date(m.timestamp).getTime() - lastBatchTimestamp; if (lastBatchAuthId === m.author.id && !m.referenced_message && !m.webhook_id && timeDiff < 5 * 60 * 1000) isGrouped = true; }
-            fragment.appendChild(createMessageElement(m, isGrouped));
-            lastBatchAuthId = m.author.id; lastBatchTimestamp = new Date(m.timestamp).getTime();
-        });
-        container.prepend(fragment); container.scrollTop = container.scrollHeight - oldScrollHeight;
-    } else oldestMessageId = null;
-    isLoadingMore = false;
-}
-document.getElementById('message-container').addEventListener('scroll', loadMoreMessages);
-
-function parseMarkdown(t) { 
-    if (!t) return ''; 
-    let res = t.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    res = res.replace(/(?:^|\n)-#\s+(.+)/g, (match, p1) => `\n<div class="text-[0.75rem] opacity-75 font-medium m-0 leading-tight">${p1}</div>`);
-    res = res.replace(/(?:^|\n)(#{1,3})\s+(.+)/g, (match, hashes, p1) => {
-        const size = hashes.length === 1 ? 'text-2xl font-bold mt-4 mb-2' : hashes.length === 2 ? 'text-xl font-bold mt-3 mb-1.5' : 'text-lg font-bold mt-2 mb-1';
-        return `\n<div class="${size}">${p1}</div>`;
-    });
-    res = res.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    res = res.replace(/__(.*?)__/g, '<u>$1</u>');
-    res = res.replace(/~~(.*?)~~/g, '<s>$1</s>');
-
-    return res.replace(/&lt;(a?):([^:]+):(\d+)&gt;/g, (match, animated, name, id) => { 
-            const ext = animated === 'a' ? 'gif' : 'webp';
-            return `<img src="https://cdn.discordapp.com/emojis/${id}.${ext}?size=44&quality=lossless" alt=":${name}:" title=":${name}:" class="inline-block w-[1.35em] h-[1.35em] align-text-bottom mx-[1px]" style="object-fit:contain;">`;
-        })
-        .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-[var(--text-link)] hover:underline break-words max-w-full">$1</a>')
-        .replace(/\n/g, '<br>'); 
-}
-
-function createMessageElement(m, isGrouped) {
-    let contentHtml = parseMarkdown(m.content);
-    if (m.mentions) {
-        m.mentions.forEach(u => { 
-            const name = u.global_name || u.username;
-            contentHtml = contentHtml.replace(new RegExp(`&lt;@!?${u.id}&gt;`, 'g'), `<span class="bg-[var(--mention-bg)] text-[var(--mention-fg)] px-0.5 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white">@${name}</span>`);
-        });
-    }
-    
-    let accessoriesHtml = '';
-    if (m.attachments?.length > 0) {
-        m.attachments.forEach(a => {
-            const isImg = a.content_type?.startsWith('image/'); const isVid = a.content_type?.startsWith('video/'); const deletedClass = m.deleted ? 'opacity-50 grayscale' : '';
-            if(isImg) accessoriesHtml += `<a href="${a.url}" target="_blank" class="block mt-2"><img src="${a.url}" class="max-w-[300px] max-h-[300px] rounded-lg bg-[var(--bg-tertiary)] object-contain ${deletedClass}" style="display:block;"></a>`;
-            else if(isVid) accessoriesHtml += `<video src="${a.url}" controls class="max-w-[300px] mt-2 rounded-lg bg-black block"></video>`;
-            else accessoriesHtml += `<div class="mt-2 p-3 rounded-md bg-[var(--bg-tertiary)] border border-[var(--border-color)] flex items-center"><a href="${a.url}" target="_blank" class="text-[var(--text-link)] font-mono text-sm break-all">📎 ${a.filename}</a></div>`;
-        });
-    }
-    
-    if (m.sticker_items?.length > 0) {
-        m.sticker_items.forEach(st => {
-            const stUrl = `https://cdn.discordapp.com/stickers/${st.id}.png?size=160`;
-            accessoriesHtml += `<a href="${stUrl}" target="_blank" class="block mt-2" title="${st.name}"><img src="${stUrl}" class="w-[140px] h-[140px] object-contain drop-shadow" alt="[Sticker] ${st.name}"></a>`;
-        });
-    }
-
-    const el = document.createElement('div'); el.id = `message-${m.id}`; if(m.nonce) el.dataset.nonce = m.nonce;
-    el.className = `message-group ${isGrouped ? 'grouped' : ''} flex flex-col relative w-full ${m.deleted ? 'opacity-80' : ''}`;
-    el.dataset.authorId = m.author.id;
-    if(m.mentions && m.mentions.some(u=>u.id===currentAccount.id)) el.classList.add('message-mentioned');
-
-    if (plugins.clickAction && !m.deleted) el.addEventListener('dblclick', () => startReply(m));
-    if (m.isSending) el.classList.add('message-sending'); if (m.isFailed) el.classList.add('message-failed');
-
-    let historyHtml = '';
-    if(plugins.messageLogger && editedMessages[m.id]) { historyHtml = `<div class="text-[var(--text-secondary)] opacity-80 text-sm line-through mb-1 whitespace-pre-wrap">${editedMessages[m.id]}</div>`; }
-
-    const isMe = currentAccount && m.author.id === currentAccount.id;
-    const delBtn = isMe ? `<button onclick="deleteMessage('${m.id}', event)" class="p-1 hover:bg-[var(--bg-primary)] rounded text-red-500" title="削除"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>` : '';
-    const editBtn = isMe ? `<button onclick="startEdit('${m.id}')" class="p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]" title="編集"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>` : '';
-    const replyBtn = `<button onclick='startReply(${JSON.stringify({id:m.id, author:m.author})})' class="p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]" title="返信"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg></button>`;
-    
-    el.addEventListener('contextmenu', (e)=>{ showContextMenuForCopyAndIDs(e, m.content, m.author.id); });
-
-    const toolbar = `<div class="message-toolbar absolute -top-4 right-4 rounded shadow-sm bg-[var(--bg-secondary)] flex items-center p-0.5 z-20 border border-[var(--border-color)]">${editBtn}${delBtn}${replyBtn}</div>`;
-    const editedTag = m.edited_timestamp ? '<span class="edited-tag text-[10px] text-[var(--text-secondary)] ml-1">(edited)</span>' : '';
-    let deletedText = m.deleted ? '<span class="text-red-500 ml-1 text-xs">(deleted)</span>' : '';
-
-    const bodyContent = `<div class="message-body message-content-text whitespace-pre-wrap leading-6 relative">${contentHtml}${editedTag}${deletedText}</div>`;
-    const accessoriesContent = accessoriesHtml ? `<div class="message-accessories whitespace-normal mt-1 w-full max-w-full">${accessoriesHtml}</div>` : '';
-    const fullContentHtml = `${historyHtml}${bodyContent}${accessoriesContent}`;
-
-    if(m.type === 7) { el.className = 'px-4 py-2 opacity-70 flex items-center gap-2 text-green-600 mt-2'; el.innerHTML = `<span>👋</span> <b>${m.author.global_name||m.author.username}</b> が参加しました。`; return el; }
-
-    if (isGrouped) {
-        const grpTimeStr = plugins.sendSeconds 
-            ? new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) 
-            : new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-
-        el.innerHTML = `
-        ${!m.deleted ? toolbar : ''}
-        <div class="flex items-start w-full relative">
-            <div class="w-[72px] min-w-[72px] flex flex-shrink-0 justify-end pt-[3px] pr-[12px] select-none opacity-0 group-hover:opacity-100 transition-opacity">
-                 <span class="text-[0.625rem] text-[var(--text-secondary)] font-medium leading-[22px]">${grpTimeStr}</span>
-            </div>
-            <div class="flex-1 min-w-0 pr-4 pl-[3px]">${fullContentHtml}</div>
-        </div>`.replace(/\n\s+/g, '');
-    } else {
-        const member = m.member || {}; const name = member.nick || m.author.global_name || m.author.username;
-        const avUrl = member.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${m.author.id}/avatars/${member.avatar}.png?size=64` : (m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${m.author.discriminator%5}.png`);
-        let decoHtml = m.author.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${m.author.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : '';
-
-        const date = new Date(m.timestamp);
-        const timeStr = plugins.sendSeconds
-            ? `${date.getFullYear()} ${('0'+(date.getMonth()+1)).slice(-2)}/${('0'+date.getDate()).slice(-2)} ${('0'+date.getHours()).slice(-2)}:${('0'+date.getMinutes()).slice(-2)}:${('0'+date.getSeconds()).slice(-2)}`
-            : `${date.getFullYear()} ${('0'+(date.getMonth()+1)).slice(-2)}/${('0'+date.getDate()).slice(-2)} ${('0'+date.getHours()).slice(-2)}:${('0'+date.getMinutes()).slice(-2)}`;
-
-        const usernameDisp = plugins.showMeYourName ? `<span class="ml-1 text-[0.8em] font-medium text-[var(--text-secondary)] opacity-70">@${m.author.username}</span>` : '';
-        const botTag = m.author.bot ? `<span class="ml-1.5 bg-[#5865F2] text-white text-[0.625rem] px-1.5 rounded-[0.1875rem] py-[1px] font-medium align-middle relative -top-[1px]">BOT</span>` : '';
-
-        let refHtml = '';
-        if (m.referenced_message) {
-            const rm = m.referenced_message; const refName = rm.author ? (rm.author.global_name || rm.author.username) : "Unknown";
-            const refAv = rm.author && rm.author.avatar ? `https://cdn.discordapp.com/avatars/${rm.author.id}/${rm.author.avatar}.png?size=16` : 'https://cdn.discordapp.com/embed/avatars/0.png';
-            refHtml = `
-            <div class="flex items-center gap-1 ml-[72px] mb-[2px] opacity-70 text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit group/reply" onclick="scrollToMessage('${rm.id}')">
-                <div class="reply-spine group-hover/reply:border-[var(--text-primary)] transition-colors"></div>
-                <img src="${refAv}" class="w-4 h-4 rounded-full ml-2">
-                <span class="font-bold mr-1 truncate max-w-[200px]">@${refName}</span>
-                <span class="truncate max-w-[300px] hover:underline">${parseMarkdown(rm.content) || 'Content'}</span>
-            </div>`;
-        }
-
-        let nameStyle = m.member?.color ? `style="color:#${m.member.color.toString(16).padStart(6,'0')}"` : '';
-        el.innerHTML = `
-        ${refHtml}
-        ${!m.deleted ? toolbar : ''} 
-        <div class="flex items-start w-full relative">
-            <div class="w-[72px] min-w-[72px] flex flex-shrink-0 items-start justify-center pt-0.5 pb-0">
-                <div class="w-10 h-10 relative avatar-container flex-shrink-0 mt-0 cursor-pointer">
-                    <img src="${avUrl}" class="avatar-img shadow-sm hover:shadow-md transition-shadow rounded-full">
-                    ${decoHtml}
-                </div>
-            </div>
-            <div class="flex-1 min-w-0 pr-4 pl-[3px] -mt-[2px]">
-                <div class="flex items-baseline leading-tight mb-1">
-                    <span class="font-medium mr-1 cursor-pointer hover:underline text-[1rem]" ${nameStyle}>${name}</span>
-                    ${usernameDisp}${botTag}
-                    <span class="ml-2 text-[0.7rem] text-[var(--text-secondary)] opacity-80" title="${timeStr}">${timeStr}</span>
-                </div>
-                ${fullContentHtml}
-            </div>
-        </div>`.replace(/\n\s+/g, ' ');
-    }
-    
-    if(m.isFailed) {
-         el.insertAdjacentHTML('beforeend', `<div class="mt-1 ml-[72px] text-sm text-[var(--text-secondary)]"><div class="flex items-center gap-1 mb-1 text-red-400"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>送信エラー: ${m.error || '不明なエラー'}</div><div class="text-xs"> Clyde • あなただけに表示 • <span class="text-blue-400 cursor-pointer hover:underline" onclick="document.getElementById('message-${m.id}').remove()">メッセージを削除</span></div></div>`);
-    }
-    
-    const contentText = el.querySelector('.message-body'); if(contentText) contentText.dataset.originalContent = m.content;
-    return el;
-}
-
-function findValidPreviousAuthor(container) {
-    let last = container.lastElementChild;
-    while(last && last.classList.contains('message-sending')) last = last.previousElementSibling;
-    return last;
-}
-
-async function sendMessage() {
-    if (!currentChannel || !currentAccount) return;
-    const input = document.getElementById('message-input'); const content = input.value.trim();
-    if (!content && attachedFiles.length === 0) return;
-    if (content.length > maxCharCount) { alert(`文字数オーバー (${content.length}/${maxCharCount})。テキストファイルとして送信します。`); const blob = new Blob([content], { type: 'text/plain' }); const file = new File([blob], 'message.txt', { type: 'text/plain' }); if(attachedFiles.length < 10) attachedFiles.push(file); else return alert('添付ファイル制限です'); input.value = ''; }
-
-    const now = new Date(); const nonceVal = String(now.getTime()); const tempId = `temp-${nonceVal}`;
-    const container = document.getElementById('message-container');
-    const prevValid = findValidPreviousAuthor(container); let isGrouped = false;
-    if(prevValid && prevValid.dataset.authorId === currentAccount.id && !prevValid.classList.contains('message-failed') && !replyingTo) { isGrouped = true; }
-
-    const fakeMsg = { id: tempId, author: currentAccount, content: (content.length>maxCharCount ? '' : content), timestamp: now.toISOString(), isSending: true, nonce: nonceVal, attachments: attachedFiles.map(f=>({url:'#',filename:f.name, content_type:f.type})) };
-    container.appendChild(createMessageElement(fakeMsg, isGrouped)); container.scrollTop = container.scrollHeight;
-
-    input.value = ''; const filesToSend = [...attachedFiles]; attachedFiles =[]; renderAttachmentList(); handleInput();
-    const body = new FormData(); body.append('payload_json', JSON.stringify({ content: fakeMsg.content, nonce: nonceVal, message_reference: replyingTo ? { message_id: replyingTo.messageId } : undefined })); filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
-    cancelReply();
-
-    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
-    if (res.error) {
-        const errEl = document.querySelector(`[data-nonce="${nonceVal}"]`);
-        if(errEl) { const failedMsg = { ...fakeMsg, isSending:false, isFailed:true, error: res.error.message }; errEl.replaceWith(createMessageElement(failedMsg, errEl.classList.contains('grouped'))); }
-    }
-}
-
-function handleInput() {
-    const i = document.getElementById('message-input'); const s = document.getElementById('send-button'); const ctr = document.getElementById('char-counter');
-    i.style.height = 'auto'; i.style.height = (i.scrollHeight) + 'px';
-    const len = i.value.length; s.disabled = (len === 0 && attachedFiles.length === 0);
-    if(plugins.showCharacter) { ctr.classList.remove('opacity-0'); ctr.textContent = `${len} / ${maxCharCount}`; ctr.style.color = (len > maxCharCount) ? '#ed4245' : 'var(--text-secondary)'; } else { ctr.classList.add('opacity-0'); }
-}
-
-function connectWS() { 
-    if (!currentAccount) return; if (ws) ws.close(); ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json'); 
-    
-    ws.onmessage = e => { 
-        const d = JSON.parse(e.data); if (d.s) lastSequence = d.s; 
-        
-        if (d.op === 10) { 
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            heartbeatInterval = setInterval(()=>ws.send(JSON.stringify({op: 1, d: lastSequence})), d.d.heartbeat_interval); 
-            ws.send(JSON.stringify({ op: 2, d: { token: currentAccount.token, properties: { $os: "linux", $browser: "disco", $device: "disco" } } })); 
-        } else if (d.t === 'READY') { if (d.d.user_settings?.guild_folders) { guildFolders = d.d.user_settings.guild_folders; if (guildFolders.length > 0) renderFolders(); }
-        } else if (d.t === 'MESSAGE_CREATE') {
-             if (d.d.channel_id === currentChannel?.id) { 
-                const container = document.getElementById('message-container');
-                if (d.d.nonce) {
-                     const optimisticTempEl = container.querySelector(`[data-nonce="${d.d.nonce}"]`);
-                     if (optimisticTempEl) {
-                         const keepIsGroupedState = optimisticTempEl.classList.contains('grouped');
-                         optimisticTempEl.replaceWith(createMessageElement(d.d, keepIsGroupedState));
-                         if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 100) container.scrollTop = container.scrollHeight;
-                         return; 
-                     }
-                }
-                const last = findValidPreviousAuthor(container); let grp = false;
-                if(last && last.dataset.authorId === d.d.author.id && !d.d.referenced_message && d.d.type === 0) { if(!last.querySelector('.reply-spine')) grp = true; }
-                container.appendChild(createMessageElement(d.d, grp));
-                if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 100) container.scrollTop = container.scrollHeight;
-             }
-        } else if (d.t === 'MESSAGE_UPDATE') {
-             if (plugins.messageLogger && d.d.id && messageStore[d.d.id]) {
-                 const old = messageStore[d.d.id];
-                 if(d.d.content && old.content !== d.d.content) {
-                     editedMessages[d.d.id] = (editedMessages[d.d.id] || "") + `<div class="history-line">${parseMarkdown(old.content)}</div>`;
-                     const combined = { ...old, ...d.d }; messageStore[d.d.id] = combined;
-                     const el = document.getElementById(`message-${d.d.id}`); if(el) el.replaceWith(createMessageElement(combined, el.classList.contains('grouped')));
-                 }
-             }
-        } else if (d.t === 'MESSAGE_DELETE') {
-             const id = d.d.id;
-             if (messageStore[id] && plugins.messageLogger) {
-                 const m = messageStore[id]; m.deleted = true; const el = document.getElementById(`message-${id}`);
-                 if(el) el.replaceWith(createMessageElement(m, el.classList.contains('grouped')));
-             } else { const el = document.getElementById(`message-${id}`); if(el) el.remove(); }
-        }
-    };
-    ws.onclose = () => { setTimeout(connectWS, 5000); };
-}
-
-function deleteAccount(id, e) {
-    if(e) e.stopPropagation(); if (!e.shiftKey && !confirm("削除しますか？")) return;
-    let a = getAccounts().filter(acc => acc.id !== id); saveAccounts(a);
-    if (getActiveAccountId() === id || !getActiveAccountId()) { localStorage.removeItem('activeAccountId'); showLoginScreen(); } else { renderSavedAccountsList(); renderCurrentUserPanel(); }
-}
-
-async function deleteMessage(id, e) { if (e.shiftKey || confirm("メッセージを削除しますか？")) await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'DELETE'); }
-
-function startEdit(id) { 
-    const msgEl = document.getElementById(`message-${id}`); if (!msgEl) return; 
-    const contentEl = msgEl.querySelector('.message-body'); if (!contentEl) return; 
-    const original = contentEl.dataset.originalContent || "";
-    contentEl.innerHTML = `<textarea class="input-field w-full p-2 bg-[var(--bg-tertiary)] rounded outline-none h-auto border border-blue-500 font-sans" rows="3">${original}</textarea><div class="text-xs mt-1 text-[var(--text-link)] opacity-80">Enterで保存 - Escでキャンセル</div>`; 
-    const t = contentEl.querySelector('textarea'); t.focus(); 
-    t.onkeydown = async (e) => { 
-        if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'PATCH', {content: t.value}); 
-        } else if(e.key==='Escape'){ const m = messageStore[id]; if(m) { msgEl.replaceWith(createMessageElement(m, msgEl.classList.contains('grouped'))); } } 
-    };
-}
-
-function startReply(m) { replyingTo = { messageId: m.id, author: m.author }; const bar = document.getElementById('reply-bar'); bar.classList.remove('hidden'); bar.classList.add('flex'); document.getElementById('reply-username').innerText = m.author.global_name || m.author.username; document.getElementById('message-input').focus(); }
-function cancelReply() { replyingTo = null; document.getElementById('reply-bar').classList.remove('flex'); document.getElementById('reply-bar').classList.add('hidden'); }
-function scrollToMessage(id) { const el = document.getElementById(`message-${id}`); if (el) { el.scrollIntoView({ behavior: 'auto', block: 'center' }); el.style.backgroundColor = 'rgba(250, 233, 105, 0.3)'; setTimeout(() => el.style.backgroundColor = '', 1500); } }
-
-function renderSettingsModal() { switchSettingsTab('plugins'); renderPluginList(); renderThemeTab(); document.getElementById('settings-modal').classList.remove('hidden'); }
-function switchSettingsTab(tabName) { document.querySelectorAll('.settings-tab-item').forEach(e => e.classList.remove('active')); document.getElementById(`tab-btn-${tabName}`).classList.add('active'); document.getElementById('tab-content-plugins').classList.add('hidden'); document.getElementById('tab-content-general').classList.add('hidden'); document.getElementById(`tab-content-${tabName}`).classList.remove('hidden'); }
-function renderPluginList() {
-    const list = document.getElementById('plugin-list'); list.innerHTML = '';
-    const defs = [
-        { key: 'clickAction', name: 'Double Click Reply', desc: 'メッセージをダブルクリックして返信します' },
-        { key: 'showMeYourName', name: 'Show Me Your Name', desc: 'ユーザー名の横に(@username)を表示' },
-        { key: 'sendSeconds', name: 'SendSeconds', desc: '送信時刻の秒数まで表示' },
-        { key: 'messageLogger', name: 'MessageLogger', desc: '削除/編集履歴を保持して表示' },
-        { key: 'showCharacter', name: 'Show Character Count', desc: '文字数を入力欄の右下に表示' },
-        { key: 'serverInfo', name: 'ServerInfo', desc: 'サーバー右クリックで詳細なサーバー情報を表示' }
-    ];
-    defs.forEach(p => { const item = document.createElement('div'); item.className = "plugin-item"; item.innerHTML = `<div><div class="font-bold text-[var(--text-primary)]">${p.name}</div><div class="text-xs text-[var(--text-secondary)] mt-0.5">${p.desc}</div></div><label class="switch"><input type="checkbox" ${plugins[p.key]?'checked':''} data-key="${p.key}"><span class="slider"></span></label>`; item.querySelector('input').onchange = (e) => { plugins[p.key] = e.target.checked; localStorage.setItem('plugins', JSON.stringify(plugins)); handleInput(); }; list.appendChild(item); });
-    list.appendChild(Object.assign(document.createElement('div'),{innerHTML: `<a href="https://github.com/Bloxd-H/discord_lite" target="_blank" class="text-xs text-blue-500 hover:underline block mt-4 text-center">GitHub Repository</a>`}));
-}
-function renderThemeTab() { const current = localStorage.theme || 'dark'; document.getElementById('theme-check-dark').classList.toggle('hidden', current !== 'dark'); document.getElementById('theme-check-light').classList.toggle('hidden', current !== 'light'); }
-function setTheme(mode) { if(mode === 'dark') { document.documentElement.classList.add('dark'); localStorage.theme = 'dark'; } else { document.documentElement.classList.remove('dark'); localStorage.theme = 'light'; } renderThemeTab(); }
-
-async function addAccount(token, existingId = null) {
-    document.getElementById('login-error').innerText = ""; if (!token || !token.trim()) return; token = token.trim().replace(/^"|"$/g, '');
-    const result = await apiRequest(token, '/users/@me');
-    if (result.data && result.data.id) {
-        let a = getAccounts(); if(existingId && existingId !== result.data.id) return document.getElementById('login-error').innerText = "別のアカウントのトークンです";
-        const idx = a.findIndex(acc => acc.id === result.data.id); const n = { ...result.data, token }; if (idx > -1) a[idx] = n; else a.push(n);
-        saveAccounts(a); switchAccount(result.data.id);
-    } else { document.getElementById('login-error').innerText = `エラー: ${result.error?.message || '無効なトークン'}`; }
-}
-    </script>
+</script>
 </body>
 </html>
