@@ -302,6 +302,7 @@ let dragCounter = 0;
 
 let showMemberList = false;
 let currentGuildData = null;
+let currentGuildMembers = [];
 
 let contextMenuData = { text: "", authorId: "" };
 
@@ -604,14 +605,30 @@ async function fetchAndRenderMembers() {
          if(!res.error) currentGuildData = res.data;
     }
 
-    const membersRes = await apiRequest(currentAccount.token, `/guilds/${currentChannel.guild_id}/members?limit=200`);
-    listEl.innerHTML = '';
+    currentGuildMembers = [];
+    if (ws && ws.readyState === 1) { 
+        ws.send(JSON.stringify({ op: 8, d: { guild_id: currentChannel.guild_id, query: "", limit: 200 } }));
+    } else {
+        listEl.innerHTML = '<div class="text-xs text-red-500 font-bold p-3 m-2 border rounded border-red-500 bg-red-50 text-center">WS接続なし</div>';
+    }
+}
+
+function renderMemberListDOM(membersArray) {
+    const listEl = $i('member-list-container');
+    if (!currentChannel || !currentChannel.guild_id || !showMemberList) return;
     
-    if (membersRes.error) {
-         listEl.innerHTML = '<div class="text-xs text-red-500 font-bold p-3 m-2 border rounded border-red-500 bg-red-50 text-center">取得失敗</div>'; return; 
+    listEl.innerHTML = '';
+    if (!membersArray || membersArray.length === 0) {
+        listEl.innerHTML = '<div class="text-xs text-[var(--text-secondary)] p-3 text-center">メンバーが見つかりません</div>';
+        return;
     }
     const rolesMap = currentGuildData ? (currentGuildData.roles || []).reduce((a,r) => ({...a, [r.id]: r}), {}) : {};
-    membersRes.data.forEach(mem => {
+    
+    const uniqueIds = new Set();
+    membersArray.forEach(mem => {
+         if (uniqueIds.has(mem.user.id)) return;
+         uniqueIds.add(mem.user.id);
+
          const name = mem.nick || mem.user.global_name || mem.user.username;
          const av = mem.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${mem.user.id}/avatars/${mem.avatar}.png?size=64` : (mem.user.avatar ? `https://cdn.discordapp.com/avatars/${mem.user.id}/${mem.user.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${mem.user.discriminator%5}.png`);
          const isBot = mem.user.bot ? '<span class="ml-1 bg-[#5865F2] text-white text-[9px] px-[4px] py-[2px] rounded-sm font-bold align-middle tracking-wider shadow-sm flex-none">BOT</span>' : '';
@@ -644,7 +661,7 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
 
 function cleanupState() {
     if (ws) { ws.onclose = null; ws.close(); ws = null; } currentChannel = null; attachedFiles =[]; if (heartbeatInterval) clearInterval(heartbeatInterval); $i('guild-list').innerHTML = ''; $i('channel-list').innerHTML = ''; $i('message-container').innerHTML = ''; $i('guild-name').innerText = '';
-    messageStore = {}; guildFolders =[]; guildDataMap.clear(); editedMessages = {}; pingCounts = {}; cancelReply(); rndAtt();
+    messageStore = {}; guildFolders =[]; guildDataMap.clear(); editedMessages = {}; pingCounts = {}; cancelReply(); rndAtt(); currentGuildMembers = [];
 }
 
 function switchAccount(id) {
@@ -1069,6 +1086,14 @@ function connectWS() {
                  const m = messageStore[id]; m.deleted = true; const el = $i(`message-${id}`);
                  if(el) el.replaceWith(crMsgEl(m, el.classList.contains('grouped')));
              } else { const el = $i(`message-${id}`); if(el) el.remove(); }
+        } else if (d.t === 'GUILD_MEMBERS_CHUNK') {
+             if (d.d.guild_id === currentChannel?.guild_id && showMemberList) {
+                 if (d.d.chunk_index === 0) currentGuildMembers = [];
+                 currentGuildMembers = currentGuildMembers.concat(d.d.members);
+                 if (d.d.chunk_index >= d.d.chunk_count - 1 || d.d.chunk_count === 1) {
+                     renderMemberListDOM(currentGuildMembers);
+                 }
+             }
         }
     };
     ws.onclose = () => { setTimeout(connectWS, 5000); };
