@@ -122,7 +122,7 @@ html.dark {
     transform: translate(-50%, -50%); pointer-events: none; z-index: 20; object-fit: contain;
 }
 
-.message-group { position: relative; margin-top: 1.8rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
+.message-group { position: relative; margin-top: 2.4rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
 .message-group.grouped { margin-top: 0.125rem; } 
 .message-group:hover { background-color: var(--message-hover); }
 .message-group:hover .message-toolbar { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -307,6 +307,15 @@ let currentGuildMembers = [];
 let contextMenuData = { text: "", authorId: "" };
 
 const plugins = JSON.parse(localStorage.getItem('plugins')) || { showMeYourName: false, sendSeconds: false, messageLogger: true, clickAction: true, showCharacter: true, serverInfo: false, userTags: true };
+
+const getDefAvatar = (user) => {
+    if (!user) return 'https://cdn.discordapp.com/embed/avatars/0.png';
+    if (user.discriminator && user.discriminator !== "0") return `https://cdn.discordapp.com/embed/avatars/${user.discriminator % 5}.png`;
+    try {
+        return `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(user.id) >> 22n) % 6n)}.png`;
+    } catch { return 'https://cdn.discordapp.com/embed/avatars/0.png'; }
+};
+
 function updatePingDots() {}
 
 function showToast(message) {
@@ -630,7 +639,7 @@ function renderMemberListDOM(membersArray) {
          uniqueIds.add(mem.user.id);
 
          const name = mem.nick || mem.user.global_name || mem.user.username;
-         const av = mem.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${mem.user.id}/avatars/${mem.avatar}.png?size=64` : (mem.user.avatar ? `https://cdn.discordapp.com/avatars/${mem.user.id}/${mem.user.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${mem.user.discriminator%5}.png`);
+         const av = mem.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${mem.user.id}/avatars/${mem.avatar}.png?size=64` : (mem.user.avatar ? `https://cdn.discordapp.com/avatars/${mem.user.id}/${mem.user.avatar}.png?size=64` : getDefAvatar(mem.user));
          const isBot = mem.user.bot ? '<span class="ml-1 bg-[#5865F2] text-white text-[9px] px-[4px] py-[2px] rounded-sm font-bold align-middle tracking-wider shadow-sm flex-none">BOT</span>' : '';
          const tag = getUserTagText(mem.user.id, mem.roles, false);
          
@@ -655,7 +664,14 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     const opts = { method, headers: { 'Authorization': token, 'X-Super-Properties': btoa(JSON.stringify({os:"Windows",browser:"Chrome",system_locale:"ja"})) } };
     if (body) { if (isFormData) opts.body = body; else { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; } }
     try {
-        const r = await fetch(`${API_BASE}${path}`, opts); if (r.status === 401) return { error: { message: "Unauthorized" }, status: 401 }; const data = r.status === 204 ? {} : await r.json(); if (!r.ok) return { error: data, status: r.status }; return { data, status: r.status };
+        const r = await fetch(`${API_BASE}${path}`, opts); 
+        if (r.status === 401) return { error: { message: "Unauthorized" }, status: 401 }; 
+        const data = r.status === 204 ? {} : await r.json(); 
+        if (!r.ok) {
+            if (data.code === 40002) showToast("アカウントを使用するには(電話番号で/メールアドレスで)認証する必要があります。");
+            return { error: data, status: r.status }; 
+        }
+        return { data, status: r.status };
     } catch (e) { return { error: { message: "Network error" }, status: 0 }; }
 }
 
@@ -684,7 +700,7 @@ function showTokenInput(account) {
     $i('account-selection-view').classList.add('hidden'); $i('account-selection-view').classList.remove('flex'); $i('token-input-view').classList.remove('hidden'); $i('token-input-view').classList.add('flex'); $i('token-input').value = '';
     const userInfo = $i('relogin-user-info');
     if (account) {
-        $i('auth-title').innerText = '再ログイン'; userInfo.classList.remove('hidden'); userInfo.classList.add('flex'); $i('relogin-name').innerText = account.global_name || account.username; $i('relogin-username').innerText = account.username; $i('relogin-avatar').src = account.avatar ? `https://cdn.discordapp.com/avatars/${account.id}/${account.avatar}.png?size=128` : `https://cdn.discordapp.com/embed/avatars/${account.discriminator % 5}.png`;
+        $i('auth-title').innerText = '再ログイン'; userInfo.classList.remove('hidden'); userInfo.classList.add('flex'); $i('relogin-name').innerText = account.global_name || account.username; $i('relogin-username').innerText = account.username; $i('relogin-avatar').src = account.avatar ? `https://cdn.discordapp.com/avatars/${account.id}/${account.avatar}.png?size=128` : getDefAvatar(account);
         $i('token-label').innerText = '新しいトークン'; $i('add-account-button-text').innerText = 'アカウントを更新'; $i('add-account-button').onclick = () => addAccount($i('token-input').value, account.id);
     } else {
         $i('auth-title').innerText = 'アカウントを追加'; userInfo.classList.add('hidden'); userInfo.classList.remove('flex'); $i('token-label').innerText = 'トークン'; $i('add-account-button-text').innerText = 'ログイン'; $i('add-account-button').onclick = () => addAccount($i('token-input').value);
@@ -699,7 +715,7 @@ function rndSavAcc() {
     const list = $i('saved-accounts-list'); list.innerHTML = '';
     getAccounts().forEach(acc => {
         const div = document.createElement('div'); div.className = "flex items-center gap-3 p-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"; div.style.borderColor = 'var(--border-color)';
-        const avatar = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`;
+        const avatar = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : getDefAvatar(acc);
         div.innerHTML = `<img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300"><div class="flex-1 min-w-0"><div class="font-bold truncate">${acc.global_name || acc.username}</div><div class="text-xs text-[var(--text-secondary)] truncate">@${acc.username}</div></div><div class="delete-btn p-2 text-gray-400 hover:text-red-500 rounded-full" title="削除"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></div>`;
         div.onclick = (e) => { if (e.target.closest('.delete-btn')) return; switchAccount(acc.id); }; div.querySelector('.delete-btn').onclick = (e) => deleteAccount(acc.id, e); list.appendChild(div);
     });
@@ -708,12 +724,12 @@ function rndSavAcc() {
 function rndCurUsr() {
     if (!currentAccount) return;
     $i('current-user-name').textContent = currentAccount.global_name || currentAccount.username; $i('current-user-subtext').textContent = `@${currentAccount.username}`;
-    const av = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${currentAccount.discriminator % 5}.png`; let deco = currentAccount.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${currentAccount.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : ''; $i('current-user-avatar-container').innerHTML = `<img src="${av}" class="avatar-img shadow-sm rounded-full">${deco}`; rndAccSw();
+    const av = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : getDefAvatar(currentAccount); let deco = currentAccount.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${currentAccount.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : ''; $i('current-user-avatar-container').innerHTML = `<img src="${av}" class="avatar-img shadow-sm rounded-full">${deco}`; rndAccSw();
 }
 function rndAccSw() {
     const list = $i('account-list'); const activeId = getActiveAccountId();
     list.innerHTML = getAccounts().map(acc => {
-        const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${acc.discriminator % 5}.png`; const isActive = acc.id === activeId;
+        const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : getDefAvatar(acc); const isActive = acc.id === activeId;
         return `<div class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white group" onclick="switchAccount('${acc.id}')">
             <img src="${av}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${acc.global_name || acc.username}</span> ${isActive ? '<div class="w-2 h-2 rounded-full bg-green-500"></div>' : ''} <div onclick="deleteAccount('${acc.id}',event)" title="削除" class="hidden group-hover:block p-1 hover:bg-black/20 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></div>
         </div>`;
@@ -753,7 +769,14 @@ async function loadGuilds() {
 }
 
 async function loadDms() {
-    if (!currentAccount) return; document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); $i('dm-icon').classList.add('active'); $i('guild-name').innerText = 'Direct Messages';
+    if (!currentAccount) return; 
+    document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); 
+    $i('dm-icon').classList.add('active'); 
+    $i('guild-name').innerText = 'Direct Messages';
+    $i('channel-name-text').innerHTML = ''; 
+    $i('message-container').innerHTML = ''; 
+    currentChannel = null; attachedFiles = []; rndAtt();
+
     const res = await apiRequest(currentAccount.token, '/users/@me/channels'); if (res.error) return;
     const list = $i('channel-list'); list.innerHTML = ''; const dms = res.data.sort((a,b) => (b.last_message_id||0) - (a.last_message_id||0));
     
@@ -761,7 +784,7 @@ async function loadDms() {
         const div = document.createElement('div'); div.className = "channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center";
         let icon = '<span class="text-xl mr-2 text-[var(--text-secondary)]">@</span>', name = "DM";
         if(dm.recipients && dm.recipients[0]) {
-            const user = dm.recipients[0]; const av = user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png';
+            const user = dm.recipients[0]; const av = user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32` : getDefAvatar(user);
             icon = `<img src="${av}" class="w-5 h-5 mr-2 rounded-full">`;
             name = user.global_name ? `${user.global_name} (${user.username})` : user.username;
         }
@@ -831,10 +854,12 @@ async function selectChannel(ch) {
         oldestMessageId = msgs[msgs.length - 1].id; const fragment = document.createDocumentFragment(); const arr = msgs.slice().reverse();
         arr.forEach((m, i) => {
              if (plugins.messageLogger) messageStore[m.id] = m;
-             const prev = (i > 0) ? arr[i-1] : null; const isGrouped = prev && (prev.author.id === m.author.id) && !m.referenced_message && !m.webhook_id && !prev.webhook_id && m.type === 0 && prev.type === 0 && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
+             const prev = (i > 0) ? arr[i-1] : null; const isGrouped = prev && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && m.type === 0 && prev.type === 0 && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
              fragment.appendChild(crMsgEl(m, isGrouped));
         });
         container.appendChild(fragment); container.scrollTop = container.scrollHeight;
+    } else {
+        container.innerHTML = '<div class="w-full h-full flex items-center justify-center text-[var(--text-secondary)] opacity-50 font-bold select-none">メッセージがありません</div>';
     }
 }
 
@@ -850,7 +875,7 @@ async function loadMoreMessages() {
         let lastBatchAuthId = null; let lastBatchTimestamp = 0;
         arr.forEach((m, index) => {
             if (plugins.messageLogger) messageStore[m.id] = m; let isGrouped = false;
-            if (index > 0) { const timeDiff = new Date(m.timestamp).getTime() - lastBatchTimestamp; if (lastBatchAuthId === m.author.id && !m.referenced_message && !m.webhook_id && timeDiff < 5 * 60 * 1000) isGrouped = true; }
+            if (index > 0) { const timeDiff = new Date(m.timestamp).getTime() - lastBatchTimestamp; if (lastBatchAuthId === m.author.id && !m.webhook_id && timeDiff < 5 * 60 * 1000) isGrouped = true; }
             fragment.appendChild(crMsgEl(m, isGrouped));
             lastBatchAuthId = m.author.id; lastBatchTimestamp = new Date(m.timestamp).getTime();
         });
@@ -932,6 +957,19 @@ function crMsgEl(m, isGrouped) {
     const accessoriesContent = accessoriesHtml ? `<div class="message-accessories whitespace-normal mt-1 w-full max-w-full">${accessoriesHtml}</div>` : '';
     const fullContentHtml = `${historyHtml}${bodyContent}${accessoriesContent}`;
 
+    let refHtml = '';
+    if (m.referenced_message) {
+        const rm = m.referenced_message; const refName = rm.author ? (rm.author.global_name || rm.author.username) : "Unknown";
+        const refAv = rm.author && rm.author.avatar ? `https://cdn.discordapp.com/avatars/${rm.author.id}/${rm.author.avatar}.png?size=16` : (rm.author ? getDefAvatar(rm.author) : 'https://cdn.discordapp.com/embed/avatars/0.png');
+        refHtml = `
+        <div class="flex items-center gap-1 ml-[72px] mb-[2px] opacity-70 text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit group/reply" onclick="scrollToMessage('${rm.id}')">
+            <div class="reply-spine group-hover/reply:border-[var(--text-primary)] transition-colors"></div>
+            <img src="${refAv}" class="w-4 h-4 rounded-full ml-2">
+            <span class="font-bold mr-1 truncate max-w-[200px]">@${refName}</span>
+            <span class="truncate max-w-[300px] hover:underline">${parseMarkdown(rm.content) || 'Content'}</span>
+        </div>`;
+    }
+
     if(m.type === 7) { el.className = 'px-4 py-2 opacity-70 flex items-center gap-2 text-green-600 mt-2'; el.innerHTML = `<span>👋</span> <b>${m.author.global_name||m.author.username}</b> が参加しました。`; return el; }
 
     if (isGrouped) {
@@ -940,6 +978,7 @@ function crMsgEl(m, isGrouped) {
             : new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 
         el.innerHTML = `
+        ${refHtml}
         ${!m.deleted ? toolbar : ''}
         <div class="flex items-start w-full relative">
             <div class="w-[72px] min-w-[72px] flex flex-shrink-0 justify-end pt-[3px] pr-[12px] select-none opacity-0 group-hover:opacity-100 transition-opacity">
@@ -949,7 +988,7 @@ function crMsgEl(m, isGrouped) {
         </div>`.replace(/\n\s+/g, '');
     } else {
         const member = m.member || {}; const name = member.nick || m.author.global_name || m.author.username;
-        const avUrl = member.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${m.author.id}/avatars/${member.avatar}.png?size=64` : (m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/${m.author.discriminator%5}.png`);
+        const avUrl = member.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${m.author.id}/avatars/${member.avatar}.png?size=64` : (m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : getDefAvatar(m.author));
         let decoHtml = m.author.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${m.author.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : '';
 
         const date = new Date(m.timestamp);
@@ -961,19 +1000,6 @@ function crMsgEl(m, isGrouped) {
         const botTag = m.author.bot && !m.webhook_id ? `<span class="ml-1.5 bg-[#5865F2] text-white text-[0.625rem] px-1.5 rounded-[0.1875rem] py-[1px] font-medium align-middle relative -top-[1px] tracking-wider flex-none">BOT</span>` : '';
         let tagsHtml = '';
         if (m.type !== 7) tagsHtml = getUserTagText(m.author.id, m.member?.roles || [], m.webhook_id);
-
-        let refHtml = '';
-        if (m.referenced_message) {
-            const rm = m.referenced_message; const refName = rm.author ? (rm.author.global_name || rm.author.username) : "Unknown";
-            const refAv = rm.author && rm.author.avatar ? `https://cdn.discordapp.com/avatars/${rm.author.id}/${rm.author.avatar}.png?size=16` : 'https://cdn.discordapp.com/embed/avatars/0.png';
-            refHtml = `
-            <div class="flex items-center gap-1 ml-[72px] mb-[2px] opacity-70 text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit group/reply" onclick="scrollToMessage('${rm.id}')">
-                <div class="reply-spine group-hover/reply:border-[var(--text-primary)] transition-colors"></div>
-                <img src="${refAv}" class="w-4 h-4 rounded-full ml-2">
-                <span class="font-bold mr-1 truncate max-w-[200px]">@${refName}</span>
-                <span class="truncate max-w-[300px] hover:underline">${parseMarkdown(rm.content) || 'Content'}</span>
-            </div>`;
-        }
 
         let nameStyle = m.member?.color ? `style="color:#${m.member.color.toString(16).padStart(6,'0')}"` : '';
         el.innerHTML = `
@@ -1067,8 +1093,10 @@ function connectWS() {
                      }
                 }
                 const last = findValidPreviousAuthor(container); let grp = false;
-                if(last && last.dataset.authorId === d.d.author.id && !d.d.referenced_message && d.d.type === 0) { if(!last.querySelector('.reply-spine')) grp = true; }
-                container.appendChild(crMsgEl(d.d, grp));
+                if(last && last.dataset.authorId === d.d.author.id && d.d.type === 0) { grp = true; }
+                const msgEl = crMsgEl(d.d, grp);
+                if(container.children.length > 0 && container.querySelector('.text-\\[var\\(--text-secondary\\)\\]\\.opacity-50\\.font-bold\\.select-none')) { container.innerHTML = ''; }
+                container.appendChild(msgEl);
                 if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 100) container.scrollTop = container.scrollHeight;
              }
         } else if (d.t === 'MESSAGE_UPDATE') {
@@ -1121,7 +1149,22 @@ function startEdit(id) {
 
 function startReply(m) { replyingTo = { messageId: m.id, author: m.author }; const bar = $i('reply-bar'); bar.classList.remove('hidden'); bar.classList.add('flex'); $i('reply-username').innerText = m.author.global_name || m.author.username; $i('message-input').focus(); }
 function cancelReply() { replyingTo = null; $i('reply-bar').classList.remove('flex'); $i('reply-bar').classList.add('hidden'); }
-function scrollToMessage(id) { const el = $i(`message-${id}`); if (el) { el.scrollIntoView({ behavior: 'auto', block: 'center' }); el.style.backgroundColor = 'rgba(250, 233, 105, 0.3)'; setTimeout(() => el.style.backgroundColor = '', 1500); } }
+function scrollToMessage(id) { 
+    const el = $i(`message-${id}`); 
+    if (el) { 
+        el.scrollIntoView({ behavior: 'auto', block: 'center' }); 
+        el.style.transition = 'background-color 0.2s'; 
+        el.style.backgroundColor = 'rgba(250, 233, 105, 0.3)'; 
+        setTimeout(() => { 
+            el.style.transition = 'background-color 0.8s ease-out'; 
+            el.style.backgroundColor = 'transparent'; 
+            setTimeout(() => { 
+                el.style.transition = ''; 
+                el.style.backgroundColor = ''; 
+            }, 800); 
+        }, 1500); 
+    } 
+}
 
 function rndSetMod() { swSetTab('plugins'); rndPlg(); rndThm(); $i('settings-modal').classList.remove('hidden'); }
 function swSetTab(tabName) { document.querySelectorAll('.settings-tab-item').forEach(e => e.classList.remove('active')); $i(`tab-btn-${tabName}`).classList.add('active'); $i('tab-content-plugins').classList.add('hidden'); $i('tab-content-general').classList.add('hidden'); $i(`tab-content-${tabName}`).classList.remove('hidden'); }
