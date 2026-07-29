@@ -113,9 +113,10 @@ html.dark {
 }
 .message-group { position: relative; margin-top: 2.75rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
 .message-group.grouped { margin-top: 0.125rem; } 
-.message-group.grouped-after-reply { margin-top: 0.5rem; }
+.message-group.grouped-after-reply { margin-top: 0.125rem; }
 .message-group:hover { background-color: var(--message-hover); }
 .message-group:hover .message-toolbar { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.message-group:hover .hover-timestamp { opacity: 1; }
 .message-toolbar { opacity: 0; pointer-events: none; transform: translateY(-4px); transition: all 0.1s; border: 1px solid var(--border-color); }
 .message-content-text { width: 100%; user-select: text; overflow-wrap: break-word; word-break: break-word; line-height: 1.375rem; color: var(--text-primary); }
 .message-sending { opacity: 0.5; } .message-failed .message-content-text { color: #ed4245; }
@@ -124,11 +125,29 @@ html.dark {
 .deleted-text { color: #ed4245; }
 .history-line { font-size: 0.9em; color: var(--text-secondary); opacity: 0.8; text-decoration: line-through; display: block; margin-bottom: 2px; }
 .edited-tag { font-size: 0.625rem; color: var(--text-secondary); margin-left: 4px; user-select: none; }
+
+/* --- 本文中のメンション: inline-block をやめてベースラインのズレを防ぐ --- */
+.mention {
+    background-color: var(--mention-bg); color: var(--mention-fg);
+    padding: 0 2px; border-radius: 3px; cursor: pointer;
+    font-weight: 500; text-decoration: none;
+}
+.mention:hover { background-color: var(--button-bg); color: #fff; }
+
+/* --- 返信プレビュー行: 本文(左端56px)とピッタリ揃える --- */
+.reply-preview {
+    margin-left: 56px; margin-bottom: 2px; position: relative; width: fit-content;
+    max-width: calc(100% - 56px);
+    display: flex; align-items: center; gap: 4px;
+    font-size: 0.85rem; line-height: 1.125rem; opacity: 0.72; cursor: pointer;
+}
+.reply-preview:hover { opacity: 1; }
 .reply-spine {
     position: absolute; top: 50%; left: -36px; width: 32px; height: 12px;
     border-left: 2px solid var(--reply-spine-color); border-top: 2px solid var(--reply-spine-color);
     border-top-left-radius: 6px; margin-top: -6px; pointer-events: none; z-index: 0;
 }
+.reply-preview:hover .reply-spine { border-color: var(--text-primary); }
 .settings-tab-item { padding: 6px 12px; border-radius: 4px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
 .settings-tab-item:hover { background-color: var(--hover-bg); color: var(--text-primary); }
 .settings-tab-item.active { background-color: var(--active-bg); color: var(--text-primary); cursor: default; }
@@ -153,6 +172,8 @@ input:checked + .slider { background-color: #3ba55c; } input:checked + .slider:b
 .divider-new::before { content: ""; flex: 1; height: 1.5px; background-color: rgba(237, 66, 69, 0.9); }
 .divider-new::after { content: ""; flex: 1; height: 1.5px; background-color: rgba(237, 66, 69, 0.9); }
 .divider-new-text { color: #ed4245; padding: 0 8px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.02em; margin: 0 4px; line-height: 1.2; display: block; z-index: 10; text-transform: uppercase;}
+.loader { width: 32px; height: 32px; border: 4px solid var(--bg-tertiary); border-top-color: var(--button-bg); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 html.midnight { --bg-primary: #000000; --bg-secondary: #000000; --bg-tertiary: #0a0a0a; --bg-quaternary: #050505; --text-primary: #f2f3f5; --text-secondary: #949ba4; --text-link: #00b0f4; --border-color: #1a1a1a; --button-bg: #5865f2; --button-text: #ffffff; --hover-bg: #111111; --active-bg: #161616; --mention-bg: rgba(88, 101, 242, 0.15); --mention-fg: #c9cdfb; --mention-bg-highlight: rgba(250, 166, 26, 0.1); --error-bg: rgba(240, 71, 71, 0.1); --code-bg: #0a0a0a; --message-hover: rgba(255, 255, 255, 0.03); --popup-bg: #000000; --popup-highlight: #111111; --deleted-bg: rgba(240, 71, 71, 0.1); --reply-spine-color: #333333; --folder-bg: rgba(88, 101, 242, 0.2); }
     </style>
 </head>
@@ -276,12 +297,18 @@ html.midnight { --bg-primary: #000000; --bg-secondary: #000000; --bg-tertiary: #
     
     <script>
 const $i = id => document.getElementById(id);
+
+/* ==== 追加: HTMLエスケープ（ユーザー名・チャンネル名などの表示崩れ / XSS 対策） ==== */
+const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ESC_MAP[c]);
+
 function getDefAvatarUrl(userId) {
     try { const idx = Number(BigInt(userId) % 5n); return `https://cdn.discordapp.com/embed/avatars/${idx}.png`; }
     catch(e) { return `https://cdn.discordapp.com/embed/avatars/0.png`; }
 }
 const API_BASE = 'https://discord.com/api/v10';
 let ws = null;
+let wsReconnectTimer = null;
 let currentAccount = null;
 let currentChannel = null;
 let lastSequence = null;
@@ -301,6 +328,8 @@ let dragCounter = 0;
 let showMemberList = false;
 let currentGuildData = null;
 let currentGuildMembers = [];
+let availableCommands = [];
+let timeoutInterval = null;
 let memberSearchQuery = '';
 let memberListRenderedCount = 0;
 const MEMBER_RENDER_BATCH = 40;
@@ -315,12 +344,43 @@ const plugins = (() => {
     localStorage.setItem('plugins', JSON.stringify(merged));
     return merged;
 })();
+
+/* ==== 追加: メッセージのグループ化判定を一箇所に集約 ====
+   Discord では「返信」は type 19 (REPLY)。以前は type === 0 のみを許可していたため、
+   返信メッセージの直後に同じ人が送った通常メッセージがグループ化されなかった。 */
+const GROUPABLE_TYPES = [0, 19];
+const isGroupableType = t => GROUPABLE_TYPES.includes(Number(t ?? 0));
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+function canGroup(prev, m) {
+    if (!prev || !m || !prev.author || !m.author) return false;
+    if (m.referenced_message) return false;              // 返信自体はヘッダを出すので必ず独立
+    if (m.webhook_id || prev.webhook_id) return false;
+    if (!isGroupableType(m.type) || !isGroupableType(prev.type)) return false;
+    if (prev.author.id !== m.author.id) return false;
+    const dt = new Date(m.timestamp).getTime() - new Date(prev.timestamp).getTime();
+    return isFinite(dt) && dt >= 0 && dt < GROUP_WINDOW_MS;
+}
+/* DOM 上の直前メッセージ要素と比較する版（WS 受信・楽観的送信で使用） */
+function canGroupWithEl(prevEl, m) {
+    if (!prevEl || !m || !m.author) return false;
+    if (!prevEl.id || !prevEl.id.startsWith('message-')) return false;
+    if (prevEl.classList.contains('message-failed')) return false;
+    if (m.referenced_message) return false;
+    if (m.webhook_id || prevEl.dataset.webhook === '1') return false;
+    if (!isGroupableType(m.type) || !isGroupableType(prevEl.dataset.msgType)) return false;
+    if (prevEl.dataset.authorId !== m.author.id) return false;
+    const prevTs = prevEl.dataset.ts ? new Date(prevEl.dataset.ts).getTime() : NaN;
+    const dt = new Date(m.timestamp).getTime() - prevTs;
+    return isFinite(dt) && dt >= 0 && dt < GROUP_WINDOW_MS;
+}
+
 function updatePingDots() {}
 function showToast(message) {
     const tContainer = $i('toast-container');
     const el = document.createElement('div');
     el.className = "bg-green-600/90 backdrop-blur-md text-white px-5 py-3 rounded-md shadow-xl text-sm font-bold flex items-center transition-all duration-300 opacity-0 transform -translate-y-5 border border-green-500/30";
-    el.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> <span>${message}</span>`;
+    el.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> <span>${esc(message)}</span>`;
     tContainer.appendChild(el);
     requestAnimationFrame(() => { el.classList.remove('opacity-0', '-translate-y-5'); el.classList.add('opacity-100', 'translate-y-0'); });
     setTimeout(() => {
@@ -332,7 +392,7 @@ function showErrorToast(message) {
     const tContainer = $i('toast-container');
     const el = document.createElement('div');
     el.className = "bg-red-600/90 backdrop-blur-md text-white px-5 py-3 rounded-md shadow-xl text-sm font-bold flex items-center transition-all duration-300 opacity-0 transform -translate-y-5 border border-red-500/30";
-    el.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span>${message}</span>`;
+    el.innerHTML = `<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span>${esc(message)}</span>`;
     tContainer.appendChild(el);
     requestAnimationFrame(() => { el.classList.remove('opacity-0', '-translate-y-5'); el.classList.add('opacity-100', 'translate-y-0'); });
     setTimeout(() => {
@@ -360,7 +420,7 @@ function shCtxAt(e, buildMenuFn) {
 function crMnBtn(text, iconHtml, onClick, customClasses = "") {
     const btn = document.createElement('button');
     btn.className = `text-left w-full px-4 py-2 hover:bg-[var(--button-bg)] hover:text-white cursor-pointer transition-colors text-[var(--text-primary)] font-bold text-xs border-none bg-transparent outline-none flex items-center gap-2 ${customClasses}`;
-    btn.innerHTML = `${iconHtml} ${text}`;
+    btn.innerHTML = `${iconHtml} ${esc(text)}`;
     btn.onclick = (e) => { e.stopPropagation(); $i('custom-context-menu').classList.add('hidden'); onClick(); };
     return btn;
 }
@@ -380,12 +440,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('paste', e => { const files = e.clipboardData.files; if (files.length > 0) { e.preventDefault(); handleFiles(files); }});
     const dragOverlay = $i('drag-overlay');
     document.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; document.body.classList.add('dragging'); });
-    document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if(dragCounter === 0) document.body.classList.remove('dragging'); });
+    document.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if(dragCounter <= 0) { dragCounter = 0; document.body.classList.remove('dragging'); } });
     document.addEventListener('dragover', e => e.preventDefault()); document.addEventListener('drop', (e) => { e.preventDefault(); dragCounter = 0; document.body.classList.remove('dragging'); if (e.dataTransfer.files.length > 0) { handleFiles(e.dataTransfer.files); }});
     $i('show-add-account-form-btn').onclick = () => showTokenInput(); $i('back-to-accounts-btn').onclick = () => showLoginScreen();
     $i('dm-icon').onclick = loadDms; $i('send-button').onclick = sendMessage;
     
-    $i('attach-button').onclick = () => { $i('file-input').click(); }; $i('file-input').onchange = (e) => { if (e.target.files.length) handleFiles(e.target.files); };
+    $i('attach-button').onclick = () => { $i('file-input').click(); };
+    $i('file-input').onchange = (e) => { if (e.target.files.length) handleFiles(e.target.files); e.target.value = ''; };
     $i('cancel-reply-btn').onclick = cancelReply;
     
     const input = $i('message-input'); input.oninput = handleInput;
@@ -413,6 +474,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         clearTimeout(memberSearchDebounce);
         memberSearchDebounce = setTimeout(() => {
             memberListRenderedCount = 0;
+            if (memberSearchQuery === '') {
+                fetchAndRenderMembers('');
+                return;
+            }
             const filtered = getFilteredMembers();
             if (filtered.length < 5 && !memberFetchedAllForQuery && currentChannel?.guild_id) {
                 fetchAndRenderMembers(memberSearchQuery);
@@ -431,7 +496,7 @@ function rndAtt() {
     if (attachedFiles.length === 0) { list.classList.add('hidden'); return; }
     list.classList.remove('hidden'); attachedFiles.forEach((f, idx) => {
         const el = document.createElement('div'); el.className = "bg-[var(--bg-tertiary)] rounded px-2 py-1 text-xs flex items-center gap-2 border border-[var(--border-color)]";
-        el.innerHTML = `<span class="truncate max-w-[150px]">${f.name}</span> <button class="text-red-500 font-bold hover:text-red-700">×</button>`;
+        el.innerHTML = `<span class="truncate max-w-[150px]">${esc(f.name)}</span> <button class="text-red-500 font-bold hover:text-red-700">×</button>`;
         el.querySelector('button').onclick = () => { attachedFiles.splice(idx, 1); rndAtt(); handleInput(); }; list.appendChild(el);
     });
 }
@@ -481,7 +546,7 @@ async function shSrvInf(s) {
         });
     }
     
-    modal.innerHTML = '<div class="loader text-white w-10 h-10 border-4"></div>';
+    modal.innerHTML = '<div class="loader"></div>';
     requestAnimationFrame(() => modal.classList.add('opacity-100'));
     const [res, memRes, chRes] = await Promise.all([
         apiRequest(currentAccount.token, `/guilds/${sId}?with_counts=true`),
@@ -510,7 +575,7 @@ async function shSrvInf(s) {
         <button class="absolute top-4 right-4 text-white hover:text-gray-200 z-10 drop-shadow-md bg-black/40 rounded-full p-1" onclick="$i('server-info-modal').classList.remove('opacity-100'); setTimeout(()=>$i('server-info-modal').remove(), 200);">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
-        ${headerImgUrl ? `<div class="w-full h-[240px] bg-[var(--bg-tertiary)]"><img src="${headerImgUrl}" class="w-full h-full object-cover"></div>` : `<div class="w-full h-[100px] bg-[var(--button-bg)]"></div>`}
+        ${headerImgUrl ? `<div class="w-full h-[240px] bg-[var(--bg-tertiary)]"><img src="${esc(headerImgUrl)}" class="w-full h-full object-cover"></div>` : `<div class="w-full h-[100px] bg-[var(--button-bg)]"></div>`}
         
         <div class="p-6 pt-4 flex-1 overflow-y-auto">
             <div class="flex border-b border-[var(--border-color)] mb-4 pb-2 text-sm font-bold text-[var(--text-secondary)]">
@@ -520,7 +585,7 @@ async function shSrvInf(s) {
             <div class="grid grid-cols-3 gap-y-6 gap-x-4 text-sm text-[var(--text-primary)]">
                 <div>
                     <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Server Owner</div>
-                    <div id="server-owner-text" class="font-bold flex items-center bg-[var(--mention-bg)] text-[var(--mention-fg)] rounded px-1 w-fit py-0.5 break-all text-xs">@${sInfo.owner_id || '-'}</div>
+                    <div id="server-owner-text" class="font-bold flex items-center bg-[var(--mention-bg)] text-[var(--mention-fg)] rounded px-1 w-fit py-0.5 break-all text-xs">@${esc(sInfo.owner_id || '-')}</div>
                 </div>
                 <div>
                     <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Created At</div>
@@ -532,11 +597,11 @@ async function shSrvInf(s) {
                 </div>
                 <div>
                     <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Vanity Link</div>
-                    ${vanity !== '-' ? `<div class="font-bold text-[var(--text-link)] cursor-pointer hover:underline text-xs" onclick="copyAndToast('https://discord.gg/${vanity}', 'Vanity URL')">discord.gg/${vanity}</div>` : `<div class="font-bold text-xs">-</div>`}
+                    ${vanity !== '-' ? `<div class="font-bold text-[var(--text-link)] cursor-pointer hover:underline text-xs" onclick="copyAndToast('https://discord.gg/${esc(vanity)}', 'Vanity URL')">discord.gg/${esc(vanity)}</div>` : `<div class="font-bold text-xs">-</div>`}
                 </div>
                 <div>
                     <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Preferred Locale</div>
-                    <div class="font-bold uppercase text-xs">${sInfo.preferred_locale || '-'}</div>
+                    <div class="font-bold uppercase text-xs">${esc(sInfo.preferred_locale || '-')}</div>
                 </div>
                 <div>
                     <div class="text-[var(--text-secondary)] mb-1 font-bold text-xs">Verification Level</div>
@@ -565,9 +630,9 @@ async function shSrvInf(s) {
                 </div>` : ''}
             </div>
             <div class="mt-6 flex flex-wrap gap-4 text-xs font-bold text-[var(--text-link)]">
-                ${sInfo.icon ? `<a href="https://cdn.discordapp.com/icons/${sId}/${sInfo.icon}.png?size=1024" target="_blank" class="hover:underline">Icon Image</a>` : ''}
-                ${bannerUrl ? `<a href="${bannerUrl}" target="_blank" class="hover:underline">Banner Image</a>` : ''}
-                ${splashUrl ? `<a href="${splashUrl}" target="_blank" class="hover:underline">Splash Image</a>` : ''}
+                ${sInfo.icon ? `<a href="https://cdn.discordapp.com/icons/${sId}/${esc(sInfo.icon)}.png?size=1024" target="_blank" class="hover:underline">Icon Image</a>` : ''}
+                ${bannerUrl ? `<a href="${esc(bannerUrl)}" target="_blank" class="hover:underline">Banner Image</a>` : ''}
+                ${splashUrl ? `<a href="${esc(splashUrl)}" target="_blank" class="hover:underline">Splash Image</a>` : ''}
             </div>
         </div>
     </div>
@@ -592,7 +657,7 @@ function getUserTagText(authorId, roleIdsArray, webhookId) {
     if (roleIdsArray && Array.isArray(roleIdsArray)) {
         roleIdsArray.forEach(rId => {
             const rObj = (currentGuildData.roles || []).find(r => r.id === rId);
-            if (rObj) perms |= BigInt(rObj.permissions);
+            if (rObj) { try { perms |= BigInt(rObj.permissions); } catch(e) {} }
         });
     }
     const ADMIN = 1n << 3n;
@@ -610,7 +675,7 @@ async function fetchAndRenderMembers(query = '') {
     }
     
     $i('member-list-view').classList.remove('hidden'); $i('member-list-view').classList.add('md:flex');
-    listEl.innerHTML = '<div class="w-full h-24 flex justify-center items-center"><div class="loader w-5 h-5 border-[3px] border-t-blue-500 rounded-full animate-spin border-[var(--bg-tertiary)]"></div></div>';
+    listEl.innerHTML = '<div class="w-full h-24 flex justify-center items-center"><div class="loader" style="width:20px;height:20px;border-width:3px;"></div></div>';
     if (!currentGuildData || currentGuildData.id !== currentChannel.guild_id) {
          const res = await apiRequest(currentAccount.token, `/guilds/${currentChannel.guild_id}`);
          if(!res.error) currentGuildData = res.data;
@@ -644,12 +709,14 @@ function buildMemberRowHtml(mem, rolesMap) {
     const color = highestRole ? `style="color:#${highestRole.color.toString(16).padStart(6,'0')}"` : '';
     const div = document.createElement('div');
     div.className = "flex items-center gap-2 px-2 py-1.5 hover:bg-[var(--hover-bg)] cursor-pointer group rounded";
-    div.innerHTML = `<div class="relative w-8 h-8 flex-shrink-0"><img src="${av}" class="w-full h-full rounded-[50%] group-hover:rounded-xl transition-all shadow-sm object-cover bg-gray-500"></div><div class="flex-1 truncate"><div class="flex items-center flex-wrap min-w-0"><span class="text-[14px] font-medium leading-tight mr-0.5 truncate group-hover:underline block align-middle" ${color}>${name}</span>${isBot}${tag}</div><div class="text-[11px] font-medium text-[var(--text-secondary)] mt-[-2px]">@${mem.user.username}</div></div>`;
+    div.innerHTML = `<div class="relative w-8 h-8 flex-shrink-0"><img src="${esc(av)}" class="w-full h-full rounded-[50%] group-hover:rounded-xl transition-all shadow-sm object-cover bg-gray-500"></div><div class="flex-1 truncate"><div class="flex items-center flex-wrap min-w-0"><span class="text-[14px] font-medium leading-tight mr-0.5 truncate group-hover:underline block align-middle" ${color}>${esc(name)}</span>${isBot}${tag}</div><div class="text-[11px] font-medium text-[var(--text-secondary)] mt-[-2px]">@${esc(mem.user.username)}</div></div>`;
+    div.oncontextmenu = (e) => { e.preventDefault(); copyAndToast(mem.user.id, "ユーザーID"); };
     return div;
 }
 function getFilteredMembers() {
     const uniqueIds = new Set(); const result = [];
     currentGuildMembers.forEach(mem => {
+        if (!mem || !mem.user) return;
         if (uniqueIds.has(mem.user.id)) return;
         if (!memberMatchesQuery(mem, memberSearchQuery)) return;
         uniqueIds.add(mem.user.id); result.push(mem);
@@ -682,14 +749,21 @@ function appendNextMemberBatch() {
     nextSlice.forEach(mem => fragment.appendChild(buildMemberRowHtml(mem, rolesMap)));
     listEl.appendChild(fragment);
     memberListRenderedCount += nextSlice.length;
+    const oldMarker = $i('member-list-loading-more'); if (oldMarker) oldMarker.remove();
     if (memberListRenderedCount < filtered.length) {
         const loadingMore = document.createElement('div');
         loadingMore.id = 'member-list-loading-more';
         loadingMore.className = 'w-full py-3 flex justify-center items-center';
-        loadingMore.innerHTML = '<div class="loader w-4 h-4 border-[2px] border-t-blue-500 rounded-full animate-spin border-[var(--bg-tertiary)]"></div>';
+        loadingMore.innerHTML = '<div class="loader" style="width:16px;height:16px;border-width:2px;"></div>';
         listEl.appendChild(loadingMore);
     } else if (!memberFetchedAllForQuery && currentGuildMembers.length >= 200) {
-        ws?.send(JSON.stringify({ op: 8, d: { guild_id: currentChannel.guild_id, query: memberSearchQuery, limit: 200 } }));
+        /* 修正: op 8 (REQUEST_GUILD_MEMBERS) にはオフセットが無いため、
+           同じクエリを再送しても同一の200件が返るだけで重複が増え続けていた。
+           再送はやめ、上限に達したことを明示する。 */
+        const note = document.createElement('div');
+        note.className = 'text-[11px] text-[var(--text-secondary)] px-3 py-2 text-center leading-snug';
+        note.textContent = '取得できるのは200件までです。検索で絞り込んでください。';
+        listEl.appendChild(note);
     }
 }
 function handleMemberListScroll() {
@@ -707,6 +781,7 @@ function handleMemberListScroll() {
 }
 const getAccounts = () => JSON.parse(localStorage.getItem('accounts')) ||[];
 function cmpSnowflakes(a, b) {
+    a = String(a || '0'); b = String(b || '0');
     if (a === b) return 0;
     if (a.length !== b.length) return a.length > b.length ? 1 : -1;
     return a > b ? 1 : -1;
@@ -722,7 +797,7 @@ function saveLastRead(channelId, messageId) {
 }
 function crDivider(text) {
     const el = document.createElement('div'); el.className = "divider-new pointer-events-none mt-[0.875rem] mb-[0.25rem] px-2";
-    el.innerHTML = `<div class="divider-new-text text-xs font-bold leading-tight uppercase tracking-wide">${text}</div>`;
+    el.innerHTML = `<div class="divider-new-text text-xs font-bold leading-tight uppercase tracking-wide">${esc(text)}</div>`;
     return el;
 }
 const saveAccounts = a => localStorage.setItem('accounts', JSON.stringify(a)); const getActiveAccountId = () => localStorage.getItem('activeAccountId'); const setActiveAccountId = id => localStorage.setItem('activeAccountId', id);
@@ -734,8 +809,16 @@ async function apiRequest(token, path, method = 'GET', body = null, isFormData =
     } catch (e) { return { error: { message: "Network error" }, status: 0 }; }
 }
 function cleanupState() {
-    if (ws) { ws.onclose = null; ws.close(); ws = null; } currentChannel = null; attachedFiles =[]; if (heartbeatInterval) clearInterval(heartbeatInterval); $i('guild-list').innerHTML = ''; $i('channel-list').innerHTML = ''; $i('message-container').innerHTML = ''; $i('guild-name').innerText = '';
-    messageStore = {}; guildFolders =[]; guildDataMap.clear(); editedMessages = {}; pingCounts = {}; cancelReply(); rndAtt(); currentGuildMembers = [];
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+    if (ws) { ws.onclose = null; ws.onmessage = null; ws.close(); ws = null; }
+    currentChannel = null; attachedFiles =[];
+    if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+    if (timeoutInterval) { clearInterval(timeoutInterval); timeoutInterval = null; }
+    lastSequence = null;
+    $i('guild-list').innerHTML = ''; $i('channel-list').innerHTML = ''; $i('message-container').innerHTML = ''; $i('guild-name').innerText = '';
+    messageStore = {}; guildFolders =[]; guildDataMap.clear(); editedMessages = {}; pingCounts = {}; cancelReply(); rndAtt();
+    currentGuildMembers = []; availableCommands = []; currentGuildData = null;
+    $i('member-list-view').classList.add('hidden'); $i('member-list-view').classList.remove('md:flex');
 }
 function switchAccount(id) {
     cleanupState(); setActiveAccountId(id); const accounts = getAccounts(); const account = accounts.find(a => a.id === id); if (!account) { showLoginScreen(); return; }
@@ -768,37 +851,38 @@ function rndSavAcc() {
     getAccounts().forEach(acc => {
         const div = document.createElement('div'); div.className = "flex items-center gap-3 p-3 border rounded hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"; div.style.borderColor = 'var(--border-color)';
         const avatar = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : getDefAvatarUrl(acc.id);
-        div.innerHTML = `<img src="${avatar}" class="w-10 h-10 rounded-full bg-gray-300"><div class="flex-1 min-w-0"><div class="font-bold truncate">${acc.global_name || acc.username}</div><div class="text-xs text-[var(--text-secondary)] truncate">@${acc.username}</div></div><div class="delete-btn p-2 text-gray-400 hover:text-red-500 rounded-full" title="削除"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></div>`;
+        div.innerHTML = `<img src="${esc(avatar)}" class="w-10 h-10 rounded-full bg-gray-300"><div class="flex-1 min-w-0"><div class="font-bold truncate">${esc(acc.global_name || acc.username)}</div><div class="text-xs text-[var(--text-secondary)] truncate">@${esc(acc.username)}</div></div><div class="delete-btn p-2 text-gray-400 hover:text-red-500 rounded-full" title="削除"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd"></path></svg></div>`;
         div.onclick = (e) => { if (e.target.closest('.delete-btn')) return; switchAccount(acc.id); }; div.querySelector('.delete-btn').onclick = (e) => deleteAccount(acc.id, e); list.appendChild(div);
     });
 }
 function rndCurUsr() {
     if (!currentAccount) return;
     $i('current-user-name').textContent = currentAccount.global_name || currentAccount.username; $i('current-user-subtext').textContent = `@${currentAccount.username}`;
-    const av = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : getDefAvatarUrl(currentAccount.id); let deco = currentAccount.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${currentAccount.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : ''; $i('current-user-avatar-container').innerHTML = `<img src="${av}" class="avatar-img shadow-sm rounded-full">${deco}`; rndAccSw();
+    const av = currentAccount.avatar ? `https://cdn.discordapp.com/avatars/${currentAccount.id}/${currentAccount.avatar}.png?size=64` : getDefAvatarUrl(currentAccount.id); let deco = currentAccount.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${esc(currentAccount.avatar_decoration_data.asset)}.png?size=96" class="avatar-decoration">` : ''; $i('current-user-avatar-container').innerHTML = `<img src="${esc(av)}" class="avatar-img shadow-sm rounded-full">${deco}`; rndAccSw();
 }
 function rndAccSw() {
     const list = $i('account-list'); const activeId = getActiveAccountId();
     list.innerHTML = getAccounts().map(acc => {
         const av = acc.avatar ? `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png?size=64` : getDefAvatarUrl(acc.id); const isActive = acc.id === activeId;
-        return `<div class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white group" onclick="switchAccount('${acc.id}')">
-            <img src="${av}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${acc.global_name || acc.username}</span> ${isActive ? '<div class="w-2 h-2 rounded-full bg-green-500"></div>' : ''} <div onclick="deleteAccount('${acc.id}',event)" title="削除" class="hidden group-hover:block p-1 hover:bg-black/20 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></div>
+        return `<div class="flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white group" onclick="switchAccount('${esc(acc.id)}')">
+            <img src="${esc(av)}" class="w-8 h-8 rounded-full"><span class="flex-1 truncate text-sm font-semibold">${esc(acc.global_name || acc.username)}</span> ${isActive ? '<div class="w-2 h-2 rounded-full bg-green-500"></div>' : ''} <div onclick="deleteAccount('${esc(acc.id)}',event)" title="削除" class="hidden group-hover:block p-1 hover:bg-black/20 rounded-full"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg></div>
         </div>`;
     }).join('');
 }
 function crSrvIcn(s, isInFolder = false) {
     let el = document.createElement('div'); el.id = `guild-${s.id}`; el.className = 'server-icon group ' + (isInFolder ? 'in-folder' : ''); el.title = s.name; el.onclick = () => loadChannels(s, el);
     el.addEventListener('contextmenu', (e) => shSrvCtx(e, s));
-    if (s.icon) el.innerHTML = `<img src="https://cdn.discordapp.com/icons/${s.id}/${s.icon}.png?size=128" class="object-cover w-full h-full transition-all group-hover:rounded-2xl rounded-[50%]">`; else el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-700 text-white font-bold text-sm transition-all group-hover:rounded-2xl rounded-[50%]">${s.name.substring(0, 2)}</div>`;
+    if (s.icon) el.innerHTML = `<img src="https://cdn.discordapp.com/icons/${s.id}/${esc(s.icon)}.png?size=128" class="object-cover w-full h-full transition-all group-hover:rounded-2xl rounded-[50%]">`; else el.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-700 text-white font-bold text-sm transition-all group-hover:rounded-2xl rounded-[50%]">${esc(String(s.name || '').substring(0, 2))}</div>`;
     return el;
 }
 function rndFldr() {
     const list = $i('guild-list'); list.innerHTML = '';
+    const placed = new Set();
     guildFolders.forEach(item => {
         if (!item.guild_ids || item.guild_ids.length === 0) return;
         if (item.id) {
             const wrap = document.createElement('div'); wrap.className = 'server-folder-wrapper flex flex-col items-center gap-2 w-full transition-all'; wrap.id = `folder-${item.id}`;
-            const guilds = item.guild_ids.map(id => guildDataMap.get(id)).filter(Boolean); if (guilds.length === 0) return;
+            const guilds = item.guild_ids.map(id => { placed.add(id); return guildDataMap.get(id); }).filter(Boolean); if (guilds.length === 0) return;
             const header = document.createElement('div'); header.className = 'folder-closed group'; 
             const makeGrid = () => { header.innerHTML = ''; guilds.slice(0,4).forEach(g => { const i = document.createElement('img'); i.className = 'folder-icon-thumb'; i.src = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : `https://cdn.discordapp.com/embed/avatars/0.png`; header.appendChild(i); }); }
             makeGrid(); let color = 'rgba(88, 101, 242, 0.4)'; if (item.color) { const r=(item.color>>16)&255; const g=(item.color>>8)&255; const b=item.color&255; color = `rgba(${r},${g},${b},0.4)`; }
@@ -806,8 +890,11 @@ function rndFldr() {
             const contentDiv = document.createElement('div'); contentDiv.className = 'hidden flex-col gap-2 items-center w-full transition-all py-1'; guilds.forEach(g => contentDiv.appendChild(crSrvIcn(g, true)));
             header.onclick = () => { if (openFolderId === item.id) { openFolderId = null; contentDiv.classList.add('hidden'); contentDiv.classList.remove('flex'); header.classList.remove('folder-opened'); header.classList.add('folder-closed'); header.style.backgroundColor = color; makeGrid(); } else { if (openFolderId) { const p = document.querySelector(`#folder-${openFolderId} .folder-opened`); if (p) p.click(); } openFolderId = item.id; contentDiv.classList.remove('hidden'); contentDiv.classList.add('flex'); header.classList.remove('folder-closed'); header.classList.add('folder-opened'); header.innerHTML = `<div class="text-white opacity-80 w-6 h-6"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 7H12L10 5H4C2.9 5 2.01 5.9 2.01 7L2 19C2 20.1 2.9 21 4 21H20C21.1 21 22 20.1 22 19V9C22 7.9 21.1 7 20 7Z"/></svg></div>`; header.style.backgroundColor = 'rgba(88, 101, 242, 0.3)'; } };
             wrap.appendChild(header); wrap.appendChild(contentDiv); list.appendChild(wrap);
-        } else item.guild_ids.forEach(gid => { const s = guildDataMap.get(gid); if (s) list.appendChild(crSrvIcn(s)); });
+        } else item.guild_ids.forEach(gid => { placed.add(gid); const s = guildDataMap.get(gid); if (s) list.appendChild(crSrvIcn(s)); });
     });
+    /* 修正: guild_folders に含まれない（フォルダ情報より後に参加した）サーバーが
+       一覧から消えていたため、末尾に追加する */
+    guildDataMap.forEach((s, gid) => { if (!placed.has(gid)) list.appendChild(crSrvIcn(s)); });
 }
 async function loadGuilds() {
     if (!currentAccount) return; const res = await apiRequest(currentAccount.token, '/users/@me/guilds'); if (res.error) { if (res.status === 401) showLoginScreen(currentAccount); return; }
@@ -818,29 +905,31 @@ async function loadGuilds() {
 async function loadDms() {
     if (!currentAccount) return; document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); $i('dm-icon').classList.add('active'); $i('guild-name').innerText = 'Direct Messages';
     currentChannel = null; $i('message-container').innerHTML = ''; $i('channel-name-text').innerHTML = '';
+    $i('toggle-members-btn').classList.add('hidden'); $i('member-list-view').classList.add('hidden'); $i('member-list-view').classList.remove('md:flex');
     const res = await apiRequest(currentAccount.token, '/users/@me/channels'); if (res.error) return;
-    const list = $i('channel-list'); list.innerHTML = ''; const dms = res.data.sort((a,b) => (b.last_message_id||0) - (a.last_message_id||0));
+    /* 修正: Snowflake を数値として引き算すると 2^53 を超えて精度が落ち、DM の並び順が狂う */
+    const list = $i('channel-list'); list.innerHTML = ''; const dms = res.data.slice().sort((a,b) => cmpSnowflakes(b.last_message_id, a.last_message_id));
     
     dms.forEach(dm => {
         const div = document.createElement('div'); div.className = "channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center";
         let icon = '<span class="text-xl mr-2 text-[var(--text-secondary)]">@</span>', name = "DM";
         if(dm.recipients && dm.recipients[0]) {
             const user = dm.recipients[0]; const av = user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=32` : getDefAvatarUrl(user.id);
-            icon = `<img src="${av}" class="w-5 h-5 mr-2 rounded-full">`;
+            icon = `<img src="${esc(av)}" class="w-5 h-5 mr-2 rounded-full">`;
             name = user.global_name ? `${user.global_name} (${user.username})` : user.username;
-        }
-        div.innerHTML = `${icon}<span>${name}</span>`; div.onclick = () => selectChannel(dm);
+        } else if (dm.name) { name = dm.name; }
+        div.innerHTML = `${icon}<span>${esc(name)}</span>`; div.onclick = () => selectChannel(dm);
         list.appendChild(div);
     });
 }
 async function loadChannels(g, element) {
-    if (!currentAccount) return; document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); if (element) element.classList.add('active'); $i('guild-name').innerText = g.name;
+    if (!currentAccount) return; document.querySelectorAll('.server-icon.active').forEach(e => e.classList.remove('active')); $i('dm-icon').classList.remove('active'); if (element) element.classList.add('active'); $i('guild-name').innerText = g.name;
     const res = await apiRequest(currentAccount.token, `/guilds/${g.id}/channels`); if (res.error) return;
     const list = $i('channel-list'); list.innerHTML = ''; const channels = res.data; const grouped = channels.reduce((acc, ch) => { (acc[ch.parent_id || 'null'] = acc[ch.parent_id || 'null'] ||[]).push(ch); return acc; }, {}); Object.values(grouped).forEach(arr => arr.sort((a, b) => a.position - b.position));
     
     const renderChannelItem = (ch, catId = null) => {
         if (![0, 5, 2].includes(ch.type)) return; const div = document.createElement('div'); div.id = `channel-${ch.id}`; div.className = `channel-item p-1.5 pl-3 rounded-md cursor-pointer mb-0.5 text-[0.95em] truncate flex items-center relative ${catId ? 'channel-child-'+catId : ''}`; if(catId) div.classList.add('ml-3');
-        const icon = ch.type === 2 ? '<svg class="w-5 h-5 mr-1.5 opacity-60" fill="currentColor" viewBox="0 0 24 24"><path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.511 20.925 10.792 21.01 11.08 21.01C11.18 21.01 11.282 20.999 11.382 20.957C11.761 20.803 12 20.427 12 20.002V4.00204C12 3.57804 11.761 3.20304 11.383 3.07904ZM14 5.00195V7.00195C16.757 7.00195 19 9.24595 19 12.002C19 14.759 16.757 17.002 14 17.002V19.002C17.86 19.002 21 15.863 21 12.002C21 8.14295 17.86 5.00195 14 5.00195ZM14 9.00195C15.654 9.00195 17 10.349 17 12.002C17 13.657 15.654 15.002 14 15.002V13.002C14.551 13.002 15 12.553 15 12.002C15 11.451 14.551 11.002 14 11.002V9.00195Z"/></svg>' : '<span class="text-xl mr-2 text-[var(--text-secondary)] opacity-70">#</span>'; div.innerHTML = `${icon}<span class="${ch.type===2?'':'font-medium'}">${ch.name}</span>`;
+        const icon = ch.type === 2 ? '<svg class="w-5 h-5 mr-1.5 opacity-60" fill="currentColor" viewBox="0 0 24 24"><path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.511 20.925 10.792 21.01 11.08 21.01C11.18 21.01 11.282 20.999 11.382 20.957C11.761 20.803 12 20.427 12 20.002V4.00204C12 3.57804 11.761 3.20304 11.383 3.07904ZM14 5.00195V7.00195C16.757 7.00195 19 9.24595 19 12.002C19 14.759 16.757 17.002 14 17.002V19.002C17.86 19.002 21 15.863 21 12.002C21 8.14295 17.86 5.00195 14 5.00195ZM14 9.00195C15.654 9.00195 17 10.349 17 12.002C17 13.657 15.654 15.002 14 15.002V13.002C14.551 13.002 15 12.553 15 12.002C15 11.451 14.551 11.002 14 11.002V9.00195Z"/></svg>' : '<span class="text-xl mr-2 text-[var(--text-secondary)] opacity-70">#</span>'; div.innerHTML = `${icon}<span class="${ch.type===2?'':'font-medium'}">${esc(ch.name)}</span>`;
         if (ch.type !== 2) {
              div.onclick = () => selectChannel(ch); div.oncontextmenu = (e) => { e.preventDefault(); copyAndToast(ch.id, "チャンネルID"); };
         } else { div.classList.add('opacity-50', 'cursor-not-allowed'); }
@@ -849,7 +938,7 @@ async function loadChannels(g, element) {
     
     (grouped['null'] ||[]).forEach(ch => renderChannelItem(ch));
     channels.filter(i => i.type === 4).sort((x, y) => x.position - y.position).forEach(cat => {
-        const h = document.createElement('div'); h.className = 'px-2 pt-4 pb-1 text-xs font-bold uppercase text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer flex items-center select-none group'; h.innerHTML = `<svg class="w-3 h-3 mr-1 category-arrow transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> ${cat.name}`;
+        const h = document.createElement('div'); h.className = 'px-2 pt-4 pb-1 text-xs font-bold uppercase text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer flex items-center select-none group'; h.innerHTML = `<svg class="w-3 h-3 mr-1 category-arrow transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> ${esc(cat.name)}`;
         h.onclick = () => toggleCategory(cat.id, h); list.appendChild(h); (grouped[cat.id] ||[]).forEach(ch => renderChannelItem(ch, cat.id));
     });
 }
@@ -858,7 +947,7 @@ function toggleCategory(catId, headerEl) {
     if (isCollapsed) { headerEl.classList.remove('category-collapsed'); children.forEach(c => c.classList.remove('channel-collapsed')); } else { headerEl.classList.add('category-collapsed'); children.forEach(c => c.classList.add('channel-collapsed')); }
 }
 async function selectChannel(ch) {
-    currentChannel = ch; oldestMessageId = null; isLoadingMore = false; cancelReply(); attachedFiles =[]; rndAtt();
+    currentChannel = ch; oldestMessageId = null; isLoadingMore = false; cancelReply(); attachedFiles =[]; rndAtt(); availableCommands = [];
     memberSearchQuery = ''; const msi = $i('member-search-input'); if (msi) msi.value = '';
     document.querySelectorAll('.channel-item.active').forEach(e => e.classList.remove('active')); const cE = $i(`channel-${ch.id}`); if (cE) cE.classList.add('active');
     
@@ -868,7 +957,7 @@ async function selectChannel(ch) {
     let name = ch.name || 'DM'; if(ch.recipients && ch.recipients[0]) {
          name = ch.recipients[0].global_name ? `${ch.recipients[0].global_name} (${ch.recipients[0].username})` : ch.recipients[0].username;
     }
-    $i('channel-name-text').innerHTML = `<span class="text-[var(--text-secondary)] opacity-70 mr-1.5">#</span><span class="truncate">${name}</span>`;
+    $i('channel-name-text').innerHTML = `<span class="text-[var(--text-secondary)] opacity-70 mr-1.5">#</span><span class="truncate">${esc(name)}</span>`;
     
     const container = $i('message-container'); container.innerHTML = '<div class="w-full h-full flex items-center justify-center"><div class="loader"></div></div>'; handleInput(); 
     
@@ -876,10 +965,12 @@ async function selectChannel(ch) {
     if(ch.guild_id && (!currentGuildData || currentGuildData.id !== ch.guild_id)) {
         prepP = apiRequest(currentAccount.token, `/guilds/${ch.guild_id}`).then(r=>{if(!r.error)currentGuildData = r.data;}).catch(()=>{});
     }
+    loadSlashCommands(ch);
     const [res] = await Promise.all([
         apiRequest(currentAccount.token, `/channels/${ch.id}/messages?limit=50`),
         prepP
     ]);
+    if (currentChannel !== ch) return; // 読み込み中に別チャンネルへ切り替わった
     container.innerHTML = '';
     
     if (res.error) { if (res.status === 401) showLoginScreen(currentAccount); container.innerHTML = `<div class="p-8 text-center text-red-500 font-bold">アクセス権限がありません</div>`; return; }
@@ -888,9 +979,12 @@ async function selectChannel(ch) {
         oldestMessageId = msgs[msgs.length - 1].id; const fragment = document.createDocumentFragment(); const arr = msgs.slice().reverse();
         const chLastRead = getLastRead(ch.id); let hasPlacedNewDiv = false;
         arr.forEach((m, i) => {
-             if (plugins.messageLogger) messageStore[m.id] = m;
+             messageStore[m.id] = m;
              if (chLastRead && !hasPlacedNewDiv && cmpSnowflakes(m.id, chLastRead) > 0) { fragment.appendChild(crDivider("新しいメッセージ")); hasPlacedNewDiv = true; }
-             const prev = (i > 0) ? arr[i-1] : null; const isGrouped = prev && !m.referenced_message && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && m.type === 0 && prev.type === 0 && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
+             const prev = (i > 0) ? arr[i-1] : null;
+             /* 修正: 以前は prev.type === 0 を要求していたため、返信(type 19)の直後の
+                通常メッセージがグループ化されなかった */
+             const isGrouped = !(hasPlacedNewDiv && i > 0 && arr[i-1] && cmpSnowflakes(m.id, chLastRead) > 0 && cmpSnowflakes(arr[i-1].id, chLastRead) <= 0) && canGroup(prev, m);
              fragment.appendChild(crMsgEl(m, isGrouped, !!(prev && prev.referenced_message)));
         });
         container.appendChild(fragment); container.scrollTop = container.scrollHeight;
@@ -898,30 +992,44 @@ async function selectChannel(ch) {
     } else {
         container.innerHTML = `<div class="w-full h-full flex items-center justify-center text-[var(--text-secondary)] opacity-60 font-bold select-none">メッセージがありません</div>`;
     }
+    if (ch.guild_id) checkTimeoutStatus(ch.guild_id); else setInputState(true);
 }
 async function loadMoreMessages() {
     if (isLoadingMore || !oldestMessageId || !currentChannel) return;
     const container = $i('message-container'); if (container.scrollTop > 50) return;
-    isLoadingMore = true; const oldScrollHeight = container.scrollHeight;
+    isLoadingMore = true; const chAtStart = currentChannel;
     const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages?limit=50&before=${oldestMessageId}`);
+    if (currentChannel !== chAtStart) { isLoadingMore = false; return; }
     if (res.data && res.data.length > 0) {
         const messages = res.data; oldestMessageId = messages[messages.length - 1].id;
-        const fragment = document.createDocumentFragment(); const arr = messages.reverse();
-        let lastBatchAuthId = null; let lastBatchTimestamp = 0; let lastBatchWasReply = false;
+        const fragment = document.createDocumentFragment(); const arr = messages.slice().reverse();
+        arr.forEach(m => messageStore[m.id] = m);
         arr.forEach((m, index) => {
-            if (plugins.messageLogger) messageStore[m.id] = m; let isGrouped = false;
-            if (index > 0 && !m.referenced_message) { const timeDiff = new Date(m.timestamp).getTime() - lastBatchTimestamp; if (lastBatchAuthId === m.author.id && !m.webhook_id && timeDiff < 5 * 60 * 1000) isGrouped = true; }
-            fragment.appendChild(crMsgEl(m, isGrouped, lastBatchWasReply));
-            lastBatchAuthId = m.author.id; lastBatchTimestamp = new Date(m.timestamp).getTime(); lastBatchWasReply = !!m.referenced_message;
+            const prev = index > 0 ? arr[index-1] : null;
+            fragment.appendChild(crMsgEl(m, canGroup(prev, m), !!(prev && prev.referenced_message)));
         });
-        container.prepend(fragment); container.scrollTop = container.scrollHeight - oldScrollHeight;
+        /* 修正: 追加読み込みの「継ぎ目」で、既存の先頭メッセージのグループ状態を再計算する */
+        let firstExistingEl = container.firstElementChild;
+        while (firstExistingEl && !(firstExistingEl.id || '').startsWith('message-')) firstExistingEl = firstExistingEl.nextElementSibling;
+        container.prepend(fragment);
+        if (firstExistingEl) {
+            const fid = firstExistingEl.id.replace('message-', '');
+            const fm = messageStore[fid]; const lastOfBatch = arr[arr.length - 1];
+            if (fm && lastOfBatch) firstExistingEl.replaceWith(crMsgEl(fm, canGroup(lastOfBatch, fm), !!lastOfBatch.referenced_message));
+        }
+        /* prepend 後の実測値でスクロール位置を合わせる */
+        const firstNew = container.firstElementChild;
+        if (firstNew) {
+            const anchor = $i(`message-${arr[arr.length-1].id}`);
+            if (anchor) container.scrollTop = anchor.offsetTop - container.offsetTop + anchor.offsetHeight;
+        }
     } else oldestMessageId = null;
     isLoadingMore = false;
 }
 $i('message-container').addEventListener('scroll', loadMoreMessages);
 function parseMarkdown(t) { 
     if (!t) return ''; 
-    let res = t.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let res = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     res = res.replace(/(?:^|\n)-#\s+(.+)/g, (match, p1) => `\n<div class="text-[0.75rem] opacity-75 font-medium m-0 leading-tight">${p1}</div>`);
     res = res.replace(/(?:^|\n)(#{1,3})\s+(.+)/g, (match, hashes, p1) => {
         const size = hashes.length === 1 ? 'text-2xl font-bold mt-4 mb-2' : hashes.length === 2 ? 'text-xl font-bold mt-3 mb-1.5' : 'text-lg font-bold mt-2 mb-1';
@@ -934,15 +1042,63 @@ function parseMarkdown(t) {
             const ext = animated === 'a' ? 'gif' : 'webp';
             return `<img src="https://cdn.discordapp.com/emojis/${id}.${ext}?size=44&quality=lossless" alt=":${name}:" title=":${name}:" class="inline-block w-[1.35em] h-[1.35em] align-text-bottom mx-[1px]" style="object-fit:contain;">`;
         })
-        .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-[var(--text-link)] hover:underline break-words max-w-full">$1</a>')
+        /* 修正: URL に " が含まれると href 属性が壊れるため除外文字を追加 */
+        .replace(/(https?:\/\/[^\s<>"']+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-[var(--text-link)] hover:underline break-words max-w-full">$1</a>')
         .replace(/\n/g, '<br>'); 
+}
+function setInputState(enabled, placeholder = "メッセージを送信") {
+    const i = $i('message-input');
+    i.disabled = !enabled; i.placeholder = placeholder;
+    handleInput();
+}
+async function checkTimeoutStatus(guildId) {
+    if (timeoutInterval) { clearInterval(timeoutInterval); timeoutInterval = null; }
+    const res = await apiRequest(currentAccount.token, `/guilds/${guildId}/members/${currentAccount.id}`);
+    const m = res.data;
+    const end = m && m.communication_disabled_until ? new Date(m.communication_disabled_until) : null;
+    if (end && end > new Date()) {
+        const update = () => {
+            const now = new Date(), diff = (end - now) / 1000;
+            if (diff <= 0) { setInputState(true); clearInterval(timeoutInterval); timeoutInterval = null; }
+            else {
+                const d = Math.floor(diff / 86400), h = Math.floor(diff / 3600) % 24, mi = Math.floor(diff / 60) % 60, s = Math.floor(diff % 60);
+                setInputState(false, `タイムアウト中: ${d > 0 ? `${d}日 ` : ''}${h.toString().padStart(2, '0')}:${mi.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+            }
+        };
+        update(); timeoutInterval = setInterval(update, 1000);
+    } else setInputState(true);
+}
+function renderEmbed(e) {
+    const color = (typeof e.color === 'number') ? `#${(e.color & 0xFFFFFF).toString(16).padStart(6, '0')}` : 'var(--border-color)';
+    let fields = e.fields ? e.fields.map(f => `<div class="${f.inline ? 'inline-block mr-4' : 'block'} min-w-[150px]"><b class="block">${parseMarkdown(f.name)}</b><span>${parseMarkdown(f.value)}</span></div>`).join('') : '';
+    return `<div class="mt-2 p-3 rounded-md flex gap-4 max-w-[520px]" style="background-color: var(--bg-tertiary); border-left: 4px solid ${color};">
+        ${e.thumbnail ? `<a href="${esc(e.thumbnail.url)}" target="_blank" rel="noopener noreferrer" class="flex-shrink-0"><img src="${esc(e.thumbnail.proxy_url || e.thumbnail.url)}" class="max-w-[80px] max-h-[80px] object-contain rounded-md"></a>` : ''}
+        <div class="text-sm flex-1 min-w-0">
+            ${e.author ? `<div class="font-bold flex items-center gap-2 mb-1">${e.author.icon_url ? `<img src="${esc(e.author.proxy_icon_url || e.author.icon_url)}" class="w-6 h-6 rounded-full">` : ''}<a href="${esc(e.author.url || '#')}" target="_blank" rel="noopener noreferrer" class="hover:underline">${esc(e.author.name)}</a></div>` : ''}
+            ${e.title ? `<a href="${esc(e.url || '#')}" target="_blank" rel="noopener noreferrer" class="font-bold text-base block text-[var(--text-link)] hover:underline">${esc(e.title)}</a>` : ''}
+            ${e.description ? `<div class="mt-1 whitespace-pre-wrap">${parseMarkdown(e.description)}</div>` : ''}
+            ${fields ? `<div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">${fields}</div>` : ''}
+            ${e.image ? `<a href="${esc(e.image.url)}" target="_blank" rel="noopener noreferrer" class="block"><img src="${esc(e.image.proxy_url || e.image.url)}" class="mt-2 rounded-lg max-w-xs"></a>` : ''}
+            ${e.footer ? `<div class="mt-2 text-xs opacity-70 flex items-center gap-1.5">${e.footer.icon_url ? `<img src="${esc(e.footer.proxy_icon_url || e.footer.icon_url)}" class="w-4 h-4 rounded-full">` : ''}${esc(e.footer.text)}</div>` : ''}
+        </div>
+    </div>`;
+}
+function snowflakeToDate(id) {
+    try { return new Date(Number((BigInt(id) >> 22n) + 1420070400000n)); } catch(e) { return null; }
 }
 function crMsgEl(m, isGrouped, prevWasReply = false) {
     let contentHtml = parseMarkdown(m.content);
     if (m.mentions) {
         m.mentions.forEach(u => { 
             const name = u.global_name || u.username;
-            contentHtml = contentHtml.replace(new RegExp(`&lt;@!?${u.id}&gt;`, 'g'), `<span class="bg-[var(--mention-bg)] text-[var(--mention-fg)] px-[4px] mx-[3px] rounded cursor-pointer hover:bg-[var(--button-bg)] hover:text-white inline-block">@${name}</span>`);
+            /* 修正: inline-block と左右マージンで行内のベースラインがずれていたので .mention に統一 */
+            contentHtml = contentHtml.replace(new RegExp(`&lt;@!?${u.id}&gt;`, 'g'), `<span class="mention">@${esc(name)}</span>`);
+        });
+    }
+    if (m.mention_roles && currentGuildData) {
+        m.mention_roles.forEach(rid => {
+            const r = (currentGuildData.roles || []).find(x => x.id === rid);
+            if (r) contentHtml = contentHtml.replace(new RegExp(`&lt;@&amp;${rid}&gt;`, 'g'), `<span class="mention">@${esc(r.name)}</span>`);
         });
     }
     
@@ -950,30 +1106,37 @@ function crMsgEl(m, isGrouped, prevWasReply = false) {
     if (m.attachments?.length > 0) {
         m.attachments.forEach(a => {
             const isImg = a.content_type?.startsWith('image/'); const isVid = a.content_type?.startsWith('video/'); const deletedClass = m.deleted ? 'opacity-50 grayscale' : '';
-            if(isImg) accessoriesHtml += `<a href="${a.url}" target="_blank" class="block mt-2"><img src="${a.url}" class="max-w-[300px] max-h-[300px] rounded-lg bg-[var(--bg-tertiary)] object-contain ${deletedClass}" style="display:block;"></a>`;
-            else if(isVid) accessoriesHtml += `<video src="${a.url}" controls class="max-w-[300px] mt-2 rounded-lg bg-black block"></video>`;
-            else accessoriesHtml += `<div class="mt-2 p-3 rounded-md bg-[var(--bg-tertiary)] border border-[var(--border-color)] flex items-center"><a href="${a.url}" target="_blank" class="text-[var(--text-link)] font-mono text-sm break-all">📎 ${a.filename}</a></div>`;
+            if(isImg) accessoriesHtml += `<a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" class="block mt-2"><img src="${esc(a.url)}" class="max-w-[300px] max-h-[300px] rounded-lg bg-[var(--bg-tertiary)] object-contain ${deletedClass}" style="display:block;"></a>`;
+            else if(isVid) accessoriesHtml += `<video src="${esc(a.url)}" controls class="max-w-[300px] mt-2 rounded-lg bg-black block"></video>`;
+            else accessoriesHtml += `<div class="mt-2 p-3 rounded-md bg-[var(--bg-tertiary)] border border-[var(--border-color)] flex items-center"><a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" class="text-[var(--text-link)] font-mono text-sm break-all">📎 ${esc(a.filename)}</a></div>`;
         });
     }
     
     if (m.sticker_items?.length > 0) {
         m.sticker_items.forEach(st => {
             const stUrl = `https://cdn.discordapp.com/stickers/${st.id}.png?size=160`;
-            accessoriesHtml += `<a href="${stUrl}" target="_blank" class="block mt-2" title="${st.name}"><img src="${stUrl}" class="w-[140px] h-[140px] object-contain drop-shadow" alt="[Sticker] ${st.name}"></a>`;
+            accessoriesHtml += `<a href="${stUrl}" target="_blank" rel="noopener noreferrer" class="block mt-2" title="${esc(st.name)}"><img src="${stUrl}" class="w-[140px] h-[140px] object-contain drop-shadow" alt="[Sticker] ${esc(st.name)}"></a>`;
         });
     }
-    const el = document.createElement('div'); el.id = `message-${m.id}`; if(m.nonce) el.dataset.nonce = m.nonce; el.dataset.hasReply = m.referenced_message ? '1' : '0';
-    el.className = `message-group ${isGrouped ? (prevWasReply ? 'grouped-after-reply' : 'grouped') : ''} flex flex-col relative w-full ${m.deleted ? 'opacity-80' : ''}`;
+    if (m.embeds?.length > 0) { m.embeds.forEach(em => { accessoriesHtml += renderEmbed(em); }); }
+    const el = document.createElement('div'); el.id = `message-${m.id}`; if(m.nonce) el.dataset.nonce = m.nonce;
+    /* グループ化判定に必要な情報を DOM 側にも保持 */
+    el.dataset.hasReply = m.referenced_message ? '1' : '0';
     el.dataset.authorId = m.author.id;
+    el.dataset.msgType = String(m.type ?? 0);
+    el.dataset.ts = m.timestamp || '';
+    el.dataset.webhook = m.webhook_id ? '1' : '0';
+    el.className = `message-group ${isGrouped ? (prevWasReply ? 'grouped-after-reply' : 'grouped') : ''} relative w-full ${m.deleted ? 'opacity-80' : ''}`;
     if(m.mentions && m.mentions.some(u=>u.id===currentAccount.id)) el.classList.add('message-mentioned');
     if (plugins.clickAction && !m.deleted) el.addEventListener('dblclick', () => startReply(m));
     if (m.isSending) el.classList.add('message-sending'); if (m.isFailed) el.classList.add('message-failed');
     let historyHtml = '';
-    if(plugins.messageLogger && editedMessages[m.id]) { historyHtml = `<div class="text-[var(--text-secondary)] opacity-80 text-sm line-through mb-1 whitespace-pre-wrap">${editedMessages[m.id]}</div>`; }
+    if(plugins.messageLogger && editedMessages[m.id]) { historyHtml = `<div class="text-[var(--text-secondary)] opacity-80 text-sm mb-1 whitespace-pre-wrap">${editedMessages[m.id]}</div>`; }
     const isMe = currentAccount && m.author.id === currentAccount.id;
     const delBtn = isMe ? `<button onclick="deleteMessage('${m.id}', event)" class="p-1 hover:bg-[var(--bg-primary)] rounded text-red-500" title="削除"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>` : '';
     const editBtn = isMe ? `<button onclick="startEdit('${m.id}')" class="p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]" title="編集"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>` : '';
-    const replyBtn = `<button onclick='startReply(${JSON.stringify({id:m.id, author:m.author})})' class="p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]" title="返信"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg></button>`;
+    /* 修正: onclick に JSON を埋め込んでいたため、名前に ' が含まれると壊れていた */
+    const replyBtn = `<button class="js-reply-btn p-1 hover:bg-[var(--bg-primary)] rounded text-[var(--text-secondary)]" title="返信"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg></button>`;
     
     el.addEventListener('contextmenu', (e)=>{ shCtxCpID(e, m.content, m.author.id); });
     const toolbar = `<div class="message-toolbar absolute -top-4 right-4 rounded shadow-sm bg-[var(--bg-secondary)] flex items-center p-0.5 z-20 border border-[var(--border-color)]">${editBtn}${delBtn}${replyBtn}</div>`;
@@ -982,28 +1145,27 @@ function crMsgEl(m, isGrouped, prevWasReply = false) {
     const bodyContent = `<div class="message-body message-content-text whitespace-pre-wrap leading-6 relative">${contentHtml}${editedTag}${deletedText}</div>`;
     const accessoriesContent = accessoriesHtml ? `<div class="message-accessories whitespace-normal mt-1 w-full max-w-full">${accessoriesHtml}</div>` : '';
     const fullContentHtml = `${historyHtml}${bodyContent}${accessoriesContent}`;
-    if(m.type === 7) { el.className = 'px-4 py-2 opacity-70 flex items-center gap-2 text-green-600 mt-2'; el.innerHTML = `<span>👋</span> <b>${m.author.global_name||m.author.username}</b> が参加しました。`; return el; }
+    if(m.type === 7) { el.className = 'px-4 py-2 opacity-70 flex items-center gap-2 text-green-600 mt-2'; el.innerHTML = `<span>👋</span> <b>${esc(m.author.global_name||m.author.username)}</b> が参加しました。`; return el; }
+
     if (isGrouped) {
         const grpTimeStr = plugins.showSeconds 
             ? new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}) 
             : new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
         el.innerHTML = `
         ${!m.deleted ? toolbar : ''}
-        <div class="flex items-start w-full relative">
-            <div class="w-[80px] min-w-[80px] flex flex-shrink-0 justify-end pt-[3px] pr-[16px] select-none opacity-0 group-hover:opacity-100 transition-opacity">
-                 <span class="text-[0.625rem] text-[var(--text-secondary)] font-medium leading-[22px]">${grpTimeStr}</span>
-            </div>
-            <div class="flex-1 min-w-0 pr-4 pl-[3px]">${fullContentHtml}</div>
+        <div class="relative flex pl-[56px]">
+            <span class="hover-timestamp absolute left-0 top-[3px] w-[44px] text-right pr-[8px] text-[0.625rem] text-[var(--text-secondary)] font-medium leading-[22px] opacity-0 select-none">${grpTimeStr}</span>
+            <div class="flex-1 min-w-0 message-content-text">${fullContentHtml}</div>
         </div>`.replace(/\n\s+/g, '');
     } else {
         const member = m.member || {}; const name = member.nick || m.author.global_name || m.author.username;
-        const avUrl = member.avatar ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${m.author.id}/avatars/${member.avatar}.png?size=64` : (m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : getDefAvatarUrl(m.author.id));
-        let decoHtml = m.author.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${m.author.avatar_decoration_data.asset}.png?size=96" class="avatar-decoration">` : '';
+        const avUrl = (member.avatar && currentChannel?.guild_id) ? `https://cdn.discordapp.com/guilds/${currentChannel.guild_id}/users/${m.author.id}/avatars/${member.avatar}.png?size=64` : (m.author.avatar ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png?size=64` : getDefAvatarUrl(m.author.id));
+        let decoHtml = m.author.avatar_decoration_data ? `<img src="https://cdn.discordapp.com/avatar-decoration-presets/${esc(m.author.avatar_decoration_data.asset)}.png?size=96" class="avatar-decoration">` : '';
         const date = new Date(m.timestamp);
         const timeStr = plugins.showSeconds
             ? `${date.getFullYear()} ${('0'+(date.getMonth()+1)).slice(-2)}/${('0'+date.getDate()).slice(-2)} ${('0'+date.getHours()).slice(-2)}:${('0'+date.getMinutes()).slice(-2)}:${('0'+date.getSeconds()).slice(-2)}`
             : `${date.getFullYear()} ${('0'+(date.getMonth()+1)).slice(-2)}/${('0'+date.getDate()).slice(-2)} ${('0'+date.getHours()).slice(-2)}:${('0'+date.getMinutes()).slice(-2)}`;
-        const usernameDisp = plugins.showMeYourName ? `<span class="ml-1 text-[0.8em] font-medium text-[var(--text-secondary)] opacity-70">@${m.author.username}</span>` : '';
+        const usernameDisp = plugins.showMeYourName ? `<span class="ml-1 text-[0.8em] font-medium text-[var(--text-secondary)] opacity-70">@${esc(m.author.username)}</span>` : '';
         const botTag = m.author.bot && !m.webhook_id ? `<span class="ml-1.5 bg-[#5865F2] text-white text-[0.625rem] px-1.5 rounded-[0.1875rem] py-[1px] font-medium align-middle relative -top-[1px] tracking-wider flex-none">BOT</span>` : '';
         let tagsHtml = '';
         if (m.type !== 7) tagsHtml = getUserTagText(m.author.id, m.member?.roles || [], m.webhook_id);
@@ -1011,13 +1173,20 @@ function crMsgEl(m, isGrouped, prevWasReply = false) {
         if (m.referenced_message) {
             const rm = m.referenced_message; const refName = rm.author ? (rm.author.global_name || rm.author.username) : "Unknown";
             const refAv = rm.author ? (rm.author.avatar ? `https://cdn.discordapp.com/avatars/${rm.author.id}/${rm.author.avatar}.png?size=16` : getDefAvatarUrl(rm.author.id)) : 'https://cdn.discordapp.com/embed/avatars/0.png';
-            const replyTimeHtml = plugins.replyTimeStamp ? `<span class="ml-1.5 text-[0.7rem] opacity-60 flex-shrink-0">${new Date(m.timestamp).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>` : '';
+            /* 修正: 返信元ではなく返信メッセージ自身の時刻を出していた */
+            let replyTimeHtml = '';
+            if (plugins.replyTimeStamp) {
+                const refDate = rm.timestamp ? new Date(rm.timestamp) : snowflakeToDate(rm.id);
+                if (refDate) replyTimeHtml = `<span class="ml-1.5 text-[0.7rem] opacity-60 flex-shrink-0">${refDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>`;
+            }
+            const refBody = rm.content ? parseMarkdown(rm.content) : (rm.attachments?.length ? '<i>添付ファイル</i>' : (rm.embeds?.length ? '<i>埋め込み</i>' : '<i>内容なし</i>'));
+            /* 修正: コンテナが ml-[56px] なのに中の画像に ml-2 が付いていて 8px 右へずれていた */
             refHtml = `
-            <div class="flex items-center gap-1 ml-[80px] mb-[2px] opacity-70 text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit group/reply" onclick="scrollToMessage('${rm.id}')">
-                <div class="reply-spine group-hover/reply:border-[var(--text-primary)] transition-colors"></div>
-                <img src="${refAv}" class="w-4 h-4 rounded-full ml-2">
-                <span class="font-bold mr-1 truncate max-w-[200px]">@${refName}</span>
-                <span class="truncate max-w-[300px] hover:underline">${parseMarkdown(rm.content) || 'Content'}</span>
+            <div class="reply-preview group/reply" onclick="scrollToMessage('${rm.id}')">
+                <div class="reply-spine"></div>
+                <img src="${esc(refAv)}" class="w-4 h-4 rounded-full flex-shrink-0">
+                <span class="font-bold mr-1 truncate max-w-[200px]">@${esc(refName)}</span>
+                <span class="truncate max-w-[420px] hover:underline">${refBody}</span>
                 ${replyTimeHtml}
             </div>`;
         }
@@ -1025,16 +1194,14 @@ function crMsgEl(m, isGrouped, prevWasReply = false) {
         el.innerHTML = `
         ${refHtml}
         ${!m.deleted ? toolbar : ''} 
-        <div class="flex items-start w-full relative">
-            <div class="w-[80px] min-w-[80px] flex flex-shrink-0 items-start justify-center pr-[8px] pt-0.5 pb-0">
-                <div class="w-10 h-10 relative avatar-container flex-shrink-0 mt-0 cursor-pointer">
-                    <img src="${avUrl}" class="avatar-img shadow-sm hover:shadow-md transition-shadow rounded-full">
-                    ${decoHtml}
-                </div>
+        <div class="relative flex gap-[16px] pt-0.5">
+            <div class="w-10 h-10 relative avatar-container flex-shrink-0 mt-0.5 cursor-pointer">
+                <img src="${esc(avUrl)}" class="avatar-img shadow-sm hover:shadow-md transition-shadow rounded-full">
+                ${decoHtml}
             </div>
-            <div class="flex-1 min-w-0 pr-4 pl-[3px] -mt-[2px]">
+            <div class="flex-1 min-w-0 message-content-text">
                 <div class="flex items-center leading-tight mb-1 flex-wrap">
-                    <span class="font-medium mr-1 cursor-pointer hover:underline text-[1rem]" ${nameStyle}>${name}</span>
+                    <span class="font-medium mr-1 cursor-pointer hover:underline text-[1rem]" ${nameStyle}>${esc(name)}</span>
                     ${usernameDisp}${botTag}${tagsHtml}
                     <span class="ml-2 text-[0.7rem] text-[var(--text-secondary)] opacity-80" title="${timeStr}">${timeStr}</span>
                 </div>
@@ -1044,15 +1211,17 @@ function crMsgEl(m, isGrouped, prevWasReply = false) {
     }
     
     if(m.isFailed) {
-         el.insertAdjacentHTML('beforeend', `<div class="mt-1 ml-[80px] text-sm text-[var(--text-secondary)]"><div class="flex items-center gap-1 mb-1 text-red-400"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>送信エラー: ${m.error || '不明なエラー'}</div><div class="text-xs"> Clyde • あなただけに表示 • <span class="text-blue-400 cursor-pointer hover:underline" onclick="$i('message-${m.id}').remove()">メッセージを削除</span></div></div>`);
+         el.insertAdjacentHTML('beforeend', `<div class="mt-1 ml-[56px] text-sm text-[var(--text-secondary)]"><div class="flex items-center gap-1 mb-1 text-red-400"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>送信エラー: ${esc(m.error || '不明なエラー')}</div><div class="text-xs"> Clyde • あなただけに表示 • <span class="text-blue-400 cursor-pointer hover:underline" onclick="$i('message-${m.id}').remove()">メッセージを削除</span></div></div>`);
     }
     
+    const rBtn = el.querySelector('.js-reply-btn');
+    if (rBtn) rBtn.onclick = (ev) => { ev.stopPropagation(); startReply(m); };
     const contentText = el.querySelector('.message-body'); if(contentText) contentText.dataset.originalContent = m.content;
     return el;
 }
 function findValidPreviousAuthor(container) {
     let last = container.lastElementChild;
-    while(last && last.classList.contains('message-sending')) last = last.previousElementSibling;
+    while(last && (last.classList.contains('message-sending') || !(last.id || '').startsWith('message-'))) last = last.previousElementSibling;
     return last;
 }
 async function sendMessage() {
@@ -1062,12 +1231,18 @@ async function sendMessage() {
     if (content.length > maxCharCount) { alert(`文字数オーバー (${content.length}/${maxCharCount})。テキストファイルとして送信します。`); const blob = new Blob([content], { type: 'text/plain' }); const file = new File([blob], 'message.txt', { type: 'text/plain' }); if(attachedFiles.length < 10) attachedFiles.push(file); else return alert('添付ファイル制限です'); input.value = ''; }
     const now = new Date(); const nonceVal = String(now.getTime()); const tempId = `temp-${nonceVal}`;
     const container = $i('message-container');
-    const prevValid = findValidPreviousAuthor(container); let isGrouped = false;
-    if(prevValid && prevValid.dataset.authorId === currentAccount.id && !prevValid.classList.contains('message-failed') && !replyingTo) { isGrouped = true; }
-    const fakeMsg = { id: tempId, author: currentAccount, content: (content.length>maxCharCount ? '' : content), timestamp: now.toISOString(), isSending: true, nonce: nonceVal, attachments: attachedFiles.map(f=>({url:'#',filename:f.name, content_type:f.type})) };
+    const replySnapshot = replyingTo;
+    const fakeMsg = {
+        id: tempId, type: replySnapshot ? 19 : 0, author: currentAccount,
+        content: (content.length>maxCharCount ? '' : content), timestamp: now.toISOString(), isSending: true, nonce: nonceVal,
+        attachments: attachedFiles.map(f=>({url:'#',filename:f.name, content_type:f.type})),
+        referenced_message: replySnapshot ? { id: replySnapshot.messageId, author: replySnapshot.author, content: replySnapshot.content || '' } : undefined
+    };
+    const prevValid = findValidPreviousAuthor(container);
+    const isGrouped = canGroupWithEl(prevValid, fakeMsg);
     container.appendChild(crMsgEl(fakeMsg, isGrouped, !!(prevValid && prevValid.dataset.hasReply === '1'))); container.scrollTop = container.scrollHeight;
     input.value = ''; const filesToSend = [...attachedFiles]; attachedFiles =[]; rndAtt(); handleInput();
-    const body = new FormData(); body.append('payload_json', JSON.stringify({ content: fakeMsg.content, nonce: nonceVal, message_reference: replyingTo ? { message_id: replyingTo.messageId } : undefined })); filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
+    const body = new FormData(); body.append('payload_json', JSON.stringify({ content: fakeMsg.content, nonce: nonceVal, message_reference: replySnapshot ? { message_id: replySnapshot.messageId } : undefined })); filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
     cancelReply();
     const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
     if (res.error) {
@@ -1078,21 +1253,53 @@ async function sendMessage() {
 function handleInput() {
     const i = $i('message-input'); const s = $i('send-button'); const ctr = $i('char-counter');
     i.style.height = 'auto'; i.style.height = (i.scrollHeight) + 'px';
-    const len = i.value.length; s.disabled = (len === 0 && attachedFiles.length === 0);
+    const len = i.value.length; s.disabled = i.disabled || (len === 0 && attachedFiles.length === 0);
     if(plugins.showCharacter) { ctr.classList.remove('opacity-0'); ctr.textContent = `${len} / ${maxCharCount}`; ctr.style.color = (len > maxCharCount) ? '#ed4245' : 'var(--text-secondary)'; } else { ctr.classList.add('opacity-0'); }
+    const picker = $i('popup-picker');
+    if (i.value.startsWith('/') && !i.value.includes(' ') && currentChannel) {
+        renderSlashCommands(); picker.classList.remove('hidden');
+    } else { picker.classList.add('hidden'); }
+}
+async function loadSlashCommands(channel) {
+    if (!currentAccount || !channel?.id) { availableCommands = []; return; }
+    const res = await apiRequest(currentAccount.token, `/channels/${channel.id}/application-commands/search?type=1&limit=25`);
+    availableCommands = res.data?.application_commands || [];
+}
+function renderSlashCommands() {
+    const picker = $i('popup-picker');
+    const query = $i('message-input').value.slice(1).toLowerCase();
+    const matched = availableCommands.filter(c => c.name.toLowerCase().includes(query));
+    if (matched.length === 0) {
+        picker.innerHTML = `<div class="p-3 rounded-lg shadow-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] text-xs text-[var(--text-secondary)]">このチャンネルで利用できるコマンドはありません</div>`;
+        return;
+    }
+    picker.innerHTML = `<div class="rounded-lg shadow-lg bg-[var(--bg-secondary)] border border-[var(--border-color)] max-h-60 overflow-y-auto p-1">
+        <div class="text-[10px] uppercase font-bold text-[var(--text-secondary)] px-2 py-1">コマンド</div>
+        ${matched.map(cmd => `<div class="px-2 py-1.5 rounded hover:bg-[var(--hover-bg)] cursor-pointer text-sm flex flex-col js-cmd" data-cmd="${esc(cmd.name)}"><b>/${esc(cmd.name)}</b><span class="text-xs text-[var(--text-secondary)] truncate">${esc(cmd.description || '')}</span></div>`).join('')}
+    </div>`;
+    picker.querySelectorAll('.js-cmd').forEach(el => {
+        el.onclick = () => { $i('message-input').value = `/${el.dataset.cmd} `; picker.classList.add('hidden'); handleInput(); $i('message-input').focus(); };
+    });
 }
 function connectWS() { 
-    if (!currentAccount) return; if (ws) ws.close(); ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json'); 
+    if (!currentAccount) return;
+    if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+    if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+    if (ws) { ws.onclose = null; ws.onmessage = null; try { ws.close(); } catch(e) {} }
+    ws = new WebSocket('wss://gateway.discord.gg/?v=10&encoding=json');
+    const myWs = ws;
     
     ws.onmessage = e => { 
+        if (myWs !== ws) return;
         const d = JSON.parse(e.data); if (d.s) lastSequence = d.s; 
         
         if (d.op === 10) { 
             if (heartbeatInterval) clearInterval(heartbeatInterval);
-            heartbeatInterval = setInterval(()=>ws.send(JSON.stringify({op: 1, d: lastSequence})), d.d.heartbeat_interval); 
-            ws.send(JSON.stringify({ op: 2, d: { token: currentAccount.token, properties: { $os: "linux", $browser: "disco", $device: "disco" } } })); 
-        } else if (d.t === 'READY') { if (d.d.user_settings?.guild_folders) { guildFolders = d.d.user_settings.guild_folders; if (guildFolders.length > 0) rndFldr(); }
+            heartbeatInterval = setInterval(()=>{ if (myWs.readyState === 1) myWs.send(JSON.stringify({op: 1, d: lastSequence})); }, d.d.heartbeat_interval); 
+            myWs.send(JSON.stringify({ op: 2, d: { token: currentAccount.token, properties: { $os: "linux", $browser: "disco", $device: "disco" } } })); 
+        } else if (d.t === 'READY') { if (d.d.user_settings?.guild_folders) { guildFolders = d.d.user_settings.guild_folders; if (guildFolders.length > 0 && guildDataMap.size > 0) rndFldr(); }
         } else if (d.t === 'MESSAGE_CREATE') {
+             messageStore[d.d.id] = d.d;
              if (d.d.channel_id === currentChannel?.id) { 
                 saveLastRead(currentChannel.id, d.d.id);
                 const container = $i('message-container');
@@ -1106,20 +1313,21 @@ function connectWS() {
                          return; 
                      }
                 }
-                const last = findValidPreviousAuthor(container); let grp = false;
-                if(last && last.dataset.authorId === d.d.author.id && !d.d.referenced_message && d.d.type === 0 && !last.classList.contains('message-failed') && (Date.now() - new Date(d.d.timestamp).getTime() < 5 * 60 * 1000)) { grp = true; }
+                const last = findValidPreviousAuthor(container);
+                const grp = canGroupWithEl(last, d.d);
                 container.appendChild(crMsgEl(d.d, grp, !!(last && last.dataset.hasReply === '1')));
                 if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 100) container.scrollTop = container.scrollHeight;
              }
         } else if (d.t === 'MESSAGE_UPDATE') {
-             if (plugins.messageLogger && d.d.id && messageStore[d.d.id]) {
-                 const old = messageStore[d.d.id];
-                 if(d.d.content && old.content !== d.d.content) {
-                     editedMessages[d.d.id] = (editedMessages[d.d.id] || "") + `<div class="history-line">${parseMarkdown(old.content)}</div>`;
-                     const combined = { ...old, ...d.d }; messageStore[d.d.id] = combined;
-                     const el = $i(`message-${d.d.id}`); if(el) el.replaceWith(crMsgEl(combined, el.classList.contains('grouped') || el.classList.contains('grouped-after-reply'), el.classList.contains('grouped-after-reply')));
-                 }
+             const id = d.d?.id; if (!id) return;
+             const old = messageStore[id];
+             if (!old) return; // 部分ペイロードだけでは再描画できない
+             if (plugins.messageLogger && typeof d.d.content === 'string' && old.content !== d.d.content) {
+                 editedMessages[id] = (editedMessages[id] || "") + `<div class="history-line">${parseMarkdown(old.content)}</div>`;
              }
+             const combined = { ...old, ...d.d }; messageStore[id] = combined;
+             const el = $i(`message-${id}`);
+             if (el) el.replaceWith(crMsgEl(combined, el.classList.contains('grouped') || el.classList.contains('grouped-after-reply'), el.classList.contains('grouped-after-reply')));
         } else if (d.t === 'MESSAGE_DELETE') {
              const id = d.d.id;
              if (messageStore[id] && plugins.messageLogger) {
@@ -1138,28 +1346,49 @@ function connectWS() {
              }
         }
     };
-    ws.onclose = () => { setTimeout(connectWS, 5000); };
+    ws.onclose = () => {
+        if (myWs !== ws) return;
+        if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+        wsReconnectTimer = setTimeout(connectWS, 5000);
+    };
+    ws.onerror = () => { try { myWs.close(); } catch(e) {} };
 }
 function deleteAccount(id, e) {
-    if(e) e.stopPropagation(); if (!e.shiftKey && !confirm("削除しますか？")) return;
+    if(e) e.stopPropagation();
+    if (!(e && e.shiftKey) && !confirm("削除しますか？")) return;
     let a = getAccounts().filter(acc => acc.id !== id); saveAccounts(a);
     if (getActiveAccountId() === id || !getActiveAccountId()) { localStorage.removeItem('activeAccountId'); showLoginScreen(); } else { rndSavAcc(); rndCurUsr(); }
 }
-async function deleteMessage(id, e) { if (e.shiftKey || confirm("メッセージを削除しますか？")) await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'DELETE'); }
+async function deleteMessage(id, e) {
+    if (!((e && e.shiftKey) || confirm("メッセージを削除しますか？"))) return;
+    const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'DELETE');
+    if (res.error) showErrorToast(`削除に失敗しました: ${res.error.message || ''}`);
+}
 function startEdit(id) { 
     const msgEl = $i(`message-${id}`); if (!msgEl) return; 
     const contentEl = msgEl.querySelector('.message-body'); if (!contentEl) return; 
+    if (contentEl.querySelector('textarea')) return;
     const original = contentEl.dataset.originalContent || "";
-    contentEl.innerHTML = `<textarea class="input-field w-full p-2 bg-[var(--bg-tertiary)] rounded outline-none h-auto border border-blue-500 font-sans" rows="3">${original}</textarea><div class="text-xs mt-1 text-[var(--text-link)] opacity-80">Enterで保存 - Escでキャンセル</div>`; 
-    const t = contentEl.querySelector('textarea'); t.focus(); 
+    const savedHtml = contentEl.innerHTML;
+    const restore = () => { contentEl.innerHTML = savedHtml; };
+    /* 修正: 生のテキストを textarea に流し込んでいたため </textarea> や < を含むと壊れていた */
+    contentEl.innerHTML = `<textarea class="input-field w-full p-2 bg-[var(--bg-tertiary)] rounded outline-none h-auto border border-blue-500 font-sans" rows="3">${esc(original)}</textarea><div class="text-xs mt-1 text-[var(--text-link)] opacity-80">Enterで保存 - Escでキャンセル</div>`; 
+    const t = contentEl.querySelector('textarea'); t.focus(); t.selectionStart = t.selectionEnd = t.value.length;
     t.onkeydown = async (e) => { 
-        if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'PATCH', {content: t.value}); 
-        } else if(e.key==='Escape'){ const m = messageStore[id]; if(m) { msgEl.replaceWith(crMsgEl(m, msgEl.classList.contains('grouped') || msgEl.classList.contains('grouped-after-reply'), msgEl.classList.contains('grouped-after-reply'))); } } 
+        if (e.isComposing) return;
+        if(e.key==='Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const newVal = t.value;
+            const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'PATCH', {content: newVal});
+            /* 修正: 成功しても textarea が閉じないままだった（MESSAGE_UPDATE が来ない場合に固まる） */
+            if (res.error) { showErrorToast(`編集に失敗しました: ${res.error.message || ''}`); restore(); }
+            else if ($i(`message-${id}`)) restore();
+        } else if(e.key==='Escape'){ restore(); } 
     };
 }
-function startReply(m) { replyingTo = { messageId: m.id, author: m.author }; const bar = $i('reply-bar'); bar.classList.remove('hidden'); bar.classList.add('flex'); $i('reply-username').innerText = m.author.global_name || m.author.username; $i('message-input').focus(); }
+function startReply(m) { replyingTo = { messageId: m.id, author: m.author, content: m.content || '' }; const bar = $i('reply-bar'); bar.classList.remove('hidden'); bar.classList.add('flex'); $i('reply-username').innerText = m.author.global_name || m.author.username; $i('message-input').focus(); }
 function cancelReply() { replyingTo = null; $i('reply-bar').classList.remove('flex'); $i('reply-bar').classList.add('hidden'); }
-function scrollToMessage(id) { const el = $i(`message-${id}`); if (el) { el.scrollIntoView({ behavior: 'auto', block: 'center' }); el.classList.remove('highlight-animate'); void el.offsetWidth; el.classList.add('highlight-animate'); } }
+function scrollToMessage(id) { const el = $i(`message-${id}`); if (el) { el.scrollIntoView({ behavior: 'auto', block: 'center' }); el.classList.remove('highlight-animate'); void el.offsetWidth; el.classList.add('highlight-animate'); } else { showToast('元のメッセージはまだ読み込まれていません'); } }
 function rndSetMod() { swSetTab('plugins'); rndPlg(); rndThm(); $i('settings-modal').classList.remove('hidden'); }
 function swSetTab(tabName) { document.querySelectorAll('.settings-tab-item').forEach(e => e.classList.remove('active')); $i(`tab-btn-${tabName}`).classList.add('active'); $i('tab-content-plugins').classList.add('hidden'); $i('tab-content-general').classList.add('hidden'); $i(`tab-content-${tabName}`).classList.remove('hidden'); }
 function rndPlg() {
@@ -1168,7 +1397,7 @@ function rndPlg() {
         { key: 'clickAction', name: 'Double Click Reply', desc: 'メッセージをダブルクリックして返信します' },
         { key: 'showMeYourName', name: 'Show Me Your Name', desc: 'ユーザー名の横に(@username)を表示' },
         { key: 'showSeconds', name: 'ShowSeconds', desc: '送信時刻の秒数まで表示' },
-        { key: 'replyTimeStamp', name: 'ReplyTimeStamp', desc: '返信メッセージに送信時刻を表示' },
+        { key: 'replyTimeStamp', name: 'ReplyTimeStamp', desc: '返信プレビューに返信元の送信時刻を表示' },
         { key: 'messageLogger', name: 'MessageLogger', desc: '削除/編集履歴を保持して表示' },
         { key: 'showCharacter', name: 'Show Character Count', desc: '文字数を入力欄の右下に表示' },
         { key: 'serverInfo', name: 'ServerInfo', desc: 'サーバー右クリックで詳細なサーバー情報を表示' },
@@ -1183,7 +1412,7 @@ function rndPlg() {
         <div class="w-full">
             <div class="font-bold text-[var(--text-primary)]">Font Loader</div>
             <div class="text-xs text-[var(--text-secondary)] mt-0.5">.ttf/.otf/.woffファイルをアップロードして全体のフォントを変更します</div>
-            <div class="text-xs mt-1 ${savedFontName ? 'text-green-500 font-bold' : 'text-[var(--text-secondary)]'}" id="font-loader-status">${savedFontName ? `適用中: ${savedFontName}` : '未適用'}</div>
+            <div class="text-xs mt-1 ${savedFontName ? 'text-green-500 font-bold' : 'text-[var(--text-secondary)]'}" id="font-loader-status">${savedFontName ? `適用中: ${esc(savedFontName)}` : '未適用'}</div>
         </div>
         <div class="flex items-center gap-2 w-full mt-1">
             <input type="file" id="font-file-input" accept=".ttf,.otf,.woff,.woff2" class="hidden">
@@ -1193,9 +1422,9 @@ function rndPlg() {
     `;
     list.appendChild(fontItem);
     $i('font-upload-btn').onclick = () => $i('font-file-input').click();
-    $i('font-file-input').onchange = (e) => { if (e.target.files.length) handleFontUpload(e.target.files[0]); };
+    $i('font-file-input').onchange = (e) => { if (e.target.files.length) handleFontUpload(e.target.files[0]); e.target.value = ''; };
     $i('font-remove-btn').onclick = () => removeCustomFont();
-    list.appendChild(Object.assign(document.createElement('div'),{innerHTML: `<a href="https://github.com/Bloxd-H/discord_lite" target="_blank" class="text-xs text-blue-500 hover:underline block mt-4 text-center">GitHub Repository</a>`}));
+    list.appendChild(Object.assign(document.createElement('div'),{innerHTML: `<a href="https://github.com/Bloxd-H/discord_lite" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-500 hover:underline block mt-4 text-center">GitHub Repository</a>`}));
 }
 function rndThm() { const current = localStorage.theme || 'dark'; $i('theme-check-dark').classList.toggle('hidden', current !== 'dark'); $i('theme-check-light').classList.toggle('hidden', current !== 'light'); $i('theme-check-midnight').classList.toggle('hidden', current !== 'midnight'); }
 function applyCustomFontFromDataUrl(dataUrl, fontName) {
@@ -1208,7 +1437,8 @@ function applyCustomFontFromDataUrl(dataUrl, fontName) {
 }
 function handleFontUpload(file) {
     if (file.size > 4 * 1024 * 1024) { showErrorToast('フォントファイルは4MB以下にしてください'); return; }
-    const validExt = /\.(ttf|otf|woff2?|)$/i.test(file.name);
+    /* 修正: 拡張子チェックの結果を使っていなかった（正規表現も空マッチを許していた） */
+    if (!/\.(ttf|otf|woff|woff2)$/i.test(file.name)) { showErrorToast('.ttf / .otf / .woff / .woff2 のみ対応しています'); return; }
     const reader = new FileReader();
     reader.onload = () => {
         const dataUrl = reader.result;
