@@ -136,7 +136,7 @@ html.midnight {
 .avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; position: relative; z-index: 10; }
 .avatar-decoration { position: absolute; top: 50%; left: 50%; width: 128%; height: 128%; transform: translate(-50%, -50%); pointer-events: none; z-index: 20; object-fit: contain; }
 
-.message-group { position: relative; margin-top: 2.15rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
+.message-group { position: relative; margin-top: 2.75rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
 .message-group.grouped { margin-top: 0.125rem; } 
 .message-group:hover { background-color: var(--message-hover); }
 .message-group:hover .message-toolbar { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -154,11 +154,12 @@ html.midnight {
 .reply-spine { position: absolute; top: 52%; left: -36px; width: 34px; height: 16px; border-left: 2px solid var(--reply-spine-color); border-top: 2px solid var(--reply-spine-color); border-top-left-radius: 6px; margin-top: -6px; pointer-events: none; z-index: 0; box-sizing: border-box; }
 
 @keyframes bgFade {
-    0% { background-color: var(--mention-bg-highlight); }
-    40% { background-color: var(--mention-bg-highlight); }
+    0% { background-color: transparent; }
+    15% { background-color: var(--mention-bg-highlight); }
+    55% { background-color: var(--mention-bg-highlight); }
     100% { background-color: transparent; }
 }
-.highlight-animate { animation: bgFade 1.6s forwards ease-in-out; }
+.highlight-animate { animation: bgFade 2s forwards ease-in-out; }
 
 .settings-tab-item { padding: 6px 12px; border-radius: 4px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
 .settings-tab-item:hover { background-color: var(--hover-bg); color: var(--text-primary); }
@@ -177,9 +178,9 @@ input:checked + .slider { background-color: #3ba55c; } input:checked + .slider:b
 .plugin-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--bg-quaternary); } .plugin-item:last-child { border-bottom: none; }
 
 .divider-new { display: flex; align-items: center; justify-content: center; position: relative; width: 100%; margin-top: 1.5rem; margin-bottom: 0.5rem; pointer-events: none;}
-.divider-new::before { content: ""; flex: 1; height: 1px; background-color: rgba(237, 66, 69, 0.7); }
-.divider-new::after { content: ""; flex: 1; height: 1px; background-color: rgba(237, 66, 69, 0.7); }
-.divider-new-text { background-color: rgba(237, 66, 69, 0.85); color: white; padding: 3px 10px; font-weight: 700; font-size: 0.725rem; border-radius: 12px; margin: 0 12px; line-height: 1.2; display: block; z-index: 10;}
+.divider-new::before { content: ""; flex: 1; height: 1.5px; background-color: rgba(237, 66, 69, 0.9); }
+.divider-new::after { content: ""; flex: 1; height: 1.5px; background-color: rgba(237, 66, 69, 0.9); }
+.divider-new-text { background-color: transparent; color: #ed4245; padding: 0 8px; font-weight: 700; font-size: 0.7rem; letter-spacing: 0.02em; border-radius: 0; margin: 0 4px; line-height: 1.2; display: block; z-index: 10;}
     </style>
 </head>
 <body class="font-sans h-screen flex flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
@@ -835,7 +836,7 @@ function toggleCategory(catId, headerEl) {
 
 function crDivider(text) {
     const el = document.createElement('div'); el.className = "divider-new pointer-events-none mt-[0.875rem] mb-[0.25rem] px-2";
-    el.innerHTML = `<div class="divider-new-text shadow-sm bg-[rgba(237,66,69,0.9)] rounded-full text-white px-2 py-0.5 text-xs font-bold leading-tight">${text}</div>`;
+    el.innerHTML = `<div class="divider-new-text text-xs font-bold leading-tight uppercase tracking-wide">${text}</div>`;
     return el;
 }
 
@@ -872,7 +873,7 @@ async function selectChannel(ch) {
         arr.forEach((m, index) => {
              if (chLastRead && !hasPlacedNewDiv && cmpSnowflakes(m.id, chLastRead) > 0) { fragment.appendChild(crDivider("新しいメッセージ")); hasPlacedNewDiv = true; }
              if (plugins.messageLogger) messageStore[m.id] = m;
-             const prev = (index > 0) ? arr[index-1] : null; const isGrouped = prev && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && [0,19].includes(m.type) && [0,19].includes(prev.type) && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
+             const prev = (index > 0) ? arr[index-1] : null; const isGrouped = prev && !m.referenced_message && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && [0,19].includes(m.type) && [0,19].includes(prev.type) && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
              fragment.appendChild(crMsgEl(m, isGrouped));
         });
         
@@ -899,7 +900,7 @@ async function loadMoreMessages() {
 
             if (plugins.messageLogger) messageStore[m.id] = m; 
             const prev = (index > 0) ? arr[index-1] : null; 
-            const isGrouped = prev && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && [0,19].includes(m.type) && [0,19].includes(prev.type) && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
+            const isGrouped = prev && !m.referenced_message && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && [0,19].includes(m.type) && [0,19].includes(prev.type) && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
             fragment.appendChild(crMsgEl(m, isGrouped));
         });
         container.prepend(fragment); container.scrollTop = container.scrollHeight - oldScrollHeight;
@@ -930,7 +931,7 @@ const getGroupTime = (ts) => {
 function crMsgEl(m, isGrouped) {
     let contentHtml = parseMarkdown(m.content);
     if (m.mentions) {
-        m.mentions.forEach(u => { const name = u.global_name || u.username; contentHtml = contentHtml.replace(new RegExp(`&lt;@!?${u.id}&gt;`, 'g'), `<span class="bg-[var(--mention-bg-highlight)] text-[var(--text-primary)] border border-[var(--mention-border-highlight)] px-[2px] mx-[0.15rem] rounded-[3px] font-[500] cursor-pointer hover:bg-[var(--button-bg)] hover:text-white transition-colors decoration-clone leading-[1.3] text-[0.9em] break-all inline-block whitespace-nowrap overflow-hidden max-w-full text-ellipsis">@${name}</span>`); });
+        m.mentions.forEach(u => { const name = u.global_name || u.username; contentHtml = contentHtml.replace(new RegExp(`&lt;@!?${u.id}&gt;`, 'g'), `<span class="bg-[var(--mention-bg-highlight)] text-[var(--text-primary)] border border-[var(--mention-border-highlight)] px-[4px] mx-[0.3rem] rounded-[3px] font-[500] cursor-pointer hover:bg-[var(--button-bg)] hover:text-white transition-colors decoration-clone leading-[1.3] text-[0.9em] break-all inline-block whitespace-nowrap overflow-hidden max-w-full text-ellipsis">@${name}</span>`); });
     }
     
     let accessoriesHtml = '';
@@ -947,7 +948,7 @@ function crMsgEl(m, isGrouped) {
     }
 
     const el = document.createElement('div'); el.id = `message-${m.id}`; if(m.nonce) el.dataset.nonce = m.nonce;
-    el.className = `message-group ${isGrouped ? 'grouped mt-[2px]' : 'mt-[2.2rem]'} flex flex-col relative w-full ${m.deleted ? 'opacity-75' : ''}`; el.dataset.authorId = m.author.id;
+    el.className = `message-group ${isGrouped ? 'grouped mt-[2px]' : 'mt-[2.75rem]'} flex flex-col relative w-full ${m.deleted ? 'opacity-75' : ''}`; el.dataset.authorId = m.author.id;
     if(m.mentions && m.mentions.some(u=>u.id===currentAccount.id)) el.classList.add('message-mentioned');
     if (plugins.clickAction && !m.deleted) el.addEventListener('dblclick', () => startReply(m.id));
     if (m.isSending) el.classList.add('message-sending'); if (m.isFailed) el.classList.add('message-failed');
@@ -973,7 +974,7 @@ function crMsgEl(m, isGrouped) {
         let tpStr = "";
         if (plugins.replyTimeStamp && rm.timestamp) { const dx = new Date(rm.timestamp); tpStr = `<span class="opacity-[0.8] ml-1 text-[10.5px] font-[600] tracking-wider text-[var(--text-secondary)] group-hover/reply:text-[var(--text-primary)] transition-colors select-none self-end pb-[2px] min-w-max pointer-events-none block pt-[0.1rem]">${('0'+dx.getHours()).slice(-2)}:${('0'+dx.getMinutes()).slice(-2)}</span>`; }
         refHtml = `
-        <div class="flex items-center gap-[0.25rem] ml-[5.25rem] mb-[2px] text-[var(--text-secondary)] opacity-[0.8] text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit max-w-[calc(100%-6rem)] group/reply outline-none -mt-[-1px] select-none" onclick="scrollToMessage('${rm.id}')">
+        <div class="flex items-center gap-[0.25rem] ml-[5.5rem] mb-[2px] text-[var(--text-secondary)] opacity-[0.8] text-[0.85rem] cursor-pointer hover:opacity-100 relative w-fit max-w-[calc(100%-6rem)] group/reply outline-none -mt-[-1px] select-none" onclick="scrollToMessage('${rm.id}')">
             <div class="reply-spine group-hover/reply:border-[var(--text-secondary)] transition-colors opacity-[0.95]" style="position: absolute; top: 52%; left: -38px; width: 34px; height: 16px; border-left: 2px solid var(--reply-spine-color); border-top: 2px solid var(--reply-spine-color); border-top-left-radius: 6px; margin-top: -6px; pointer-events: none;"></div>
             <img src="${refAv}" class="w-[18px] h-[18px] rounded-full mx-0 shrink-0 bg-[var(--bg-tertiary)] border border-[var(--bg-tertiary)] pointer-events-none ml-[2px]">
             <span class="font-[600] shrink-0 text-gray-800 dark:text-gray-300 pointer-events-none text-[0.85rem] pl-0.5" style="color:var(--text-primary);">@${refName}</span>
@@ -992,7 +993,7 @@ function crMsgEl(m, isGrouped) {
                 <div class="absolute left-0 w-[5rem] flex flex-shrink-0 justify-end pt-[0.2rem] pr-[1rem] select-none opacity-[0] group-hover:opacity-100 transition-opacity">
                      <span class="text-[0.625rem] text-[var(--text-secondary)] font-medium tracking-tight text-center pointer-events-none">${getGroupTime(m.timestamp)}</span>
                 </div>
-                <div class="flex-1 min-w-0 pl-[5.25rem] pr-2 mt-[-0.2rem] pb-[1px] break-words break-all relative">
+                <div class="flex-1 min-w-0 pl-[5.5rem] pr-2 mt-[-0.2rem] pb-[1px] break-words break-all relative">
                     ${fullContentHtml}
                 </div>
             </div>
@@ -1015,7 +1016,7 @@ function crMsgEl(m, isGrouped) {
                     ${decoHtml}
                 </div>
                 
-                <div class="flex-1 min-w-0 pl-[5.25rem] pr-2 break-words break-all">
+                <div class="flex-1 min-w-0 pl-[5.5rem] pr-2 break-words break-all">
                     <div class="flex items-center leading-none flex-wrap h-max max-h-min mb-[0.2rem] -mt-[0.25rem] min-h-[22px] min-w-max pb-[2px] box-border relative z-0 mt-[-4px]">
                         <span class="font-bold mr-1 hover:underline text-[15.5px] decoration-[1.5px] tracking-tight cursor-pointer pb-[1px]" ${nameStyle}>${name}</span>
                         ${botTag}${usernameDisp}${tagsHtml}
@@ -1027,7 +1028,7 @@ function crMsgEl(m, isGrouped) {
         </div>`.replace(/\n\s+/g, ' ');
     }
     
-    if(m.isFailed) { el.insertAdjacentHTML('beforeend', `<div class="mt-[4px] ml-[5.25rem] text-[0.8rem] text-[var(--text-secondary)] block opacity-[0.85]"><div class="flex items-center gap-[4px] mb-[2px] text-[var(--error-border)]"><svg class="w-4 h-4 opacity-80 mt-[0.5px] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span class="font-[600] truncate tracking-wide">メッセージが送信できませんでした (Clyde) : ${m.error || 'タイムアウト'}</span></div><div class="text-[0.675rem] pl-5 flex items-center font-[500] leading-none mb-1 opacity-[0.95]">Clyde · <span class="pl-1">あなただけに表示</span><div class="w-1 h-1 rounded-full bg-white mx-[6px] my-auto"></div> <span class="text-[var(--text-link)] cursor-pointer hover:underline outline-none bg-transparent" onclick="$i('message-${m.id}').remove()">メッセージを消去</span></div></div>`); }
+    if(m.isFailed) { el.insertAdjacentHTML('beforeend', `<div class="mt-[4px] ml-[5.5rem] text-[0.8rem] text-[var(--text-secondary)] block opacity-[0.85]"><div class="flex items-center gap-[4px] mb-[2px] text-[var(--error-border)]"><svg class="w-4 h-4 opacity-80 mt-[0.5px] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span class="font-[600] truncate tracking-wide">メッセージが送信できませんでした (Clyde) : ${m.error || 'タイムアウト'}</span></div><div class="text-[0.675rem] pl-5 flex items-center font-[500] leading-none mb-1 opacity-[0.95]">Clyde · <span class="pl-1">あなただけに表示</span><div class="w-1 h-1 rounded-full bg-white mx-[6px] my-auto"></div> <span class="text-[var(--text-link)] cursor-pointer hover:underline outline-none bg-transparent" onclick="$i('message-${m.id}').remove()">メッセージを消去</span></div></div>`); }
     
     const contentText = el.querySelector('.message-body'); if(contentText) contentText.dataset.originalContent = m.content; return el;
 }
@@ -1045,7 +1046,7 @@ async function sendMessage() {
     if (content.length > maxCharCount) { showToast(`文字数上限を超過 (${content.length}/${maxCharCount}文字)。添付として送信`); const blob = new Blob([content], { type: 'text/plain' }); const file = new File([blob], 'message.txt', { type: 'text/plain' }); if(attachedFiles.length < 10) attachedFiles.push(file); else return alert('ファイル10個上限に到達'); input.value = ''; }
 
     const now = new Date(); const nonceVal = String(now.getTime()); const tempId = `temp-${nonceVal}`; const container = $i('message-container'); const prevValid = findValidPreviousAuthor(container); let isGrouped = false;
-    if(prevValid && prevValid.dataset.authorId === currentAccount.id && !prevValid.classList.contains('message-failed')) { isGrouped = true; }
+    if(!replyingTo && prevValid && prevValid.dataset.authorId === currentAccount.id && !prevValid.classList.contains('message-failed')) { isGrouped = true; }
 
     const fakeMsg = { id: tempId, author: currentAccount, content: (content.length>maxCharCount ? '' : content), timestamp: now.toISOString(), isSending: true, nonce: nonceVal, attachments: attachedFiles.map(f=>({url:'#',filename:f.name, content_type:f.type})) };
     
@@ -1084,7 +1085,7 @@ function connectWS() {
                 if (d.d.nonce) { const optimisticTempEl = container.querySelector(`[data-nonce="${d.d.nonce}"]`); if (optimisticTempEl) { const keepIsGroupedState = optimisticTempEl.classList.contains('grouped'); optimisticTempEl.replaceWith(crMsgEl(d.d, keepIsGroupedState)); if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 120) container.scrollTop = container.scrollHeight; return; } }
                 
                 const last = findValidPreviousAuthor(container); let grp = false;
-                if(last && last.dataset.authorId === d.d.author.id && !d.d.webhook_id && [0,19].includes(d.d.type) && (!last.querySelector('svg.w-4.text-green-500'))) {
+                if(last && !d.d.referenced_message && last.dataset.authorId === d.d.author.id && !d.d.webhook_id && [0,19].includes(d.d.type) && (!last.querySelector('svg.w-4.text-green-500'))) {
                      const prevDtAttr = last.querySelector('.message-body')?.dataset?.originalContent; if (prevDtAttr !== undefined) grp = true; 
                 }
                 const msgEl = crMsgEl(d.d, grp); if(container.children.length > 0 && container.querySelector('.text-\\[var\\(--text-secondary\\)\\]\\.opacity-50\\.font-bold\\.select-none')) container.innerHTML = '';
