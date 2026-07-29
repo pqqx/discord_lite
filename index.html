@@ -113,6 +113,7 @@ html.dark {
 }
 .message-group { position: relative; margin-top: 2.75rem; width: 100%; display: flex; flex-direction: column; align-items: flex-start; }
 .message-group.grouped { margin-top: 0.125rem; } 
+.message-group.grouped-after-reply { margin-top: 0.5rem; }
 .message-group:hover { background-color: var(--message-hover); }
 .message-group:hover .message-toolbar { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .message-toolbar { opacity: 0; pointer-events: none; transform: translateY(-4px); transition: all 0.1s; border: 1px solid var(--border-color); }
@@ -372,6 +373,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedTheme = localStorage.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
     if (savedTheme === 'dark') document.documentElement.classList.add('dark');
     else if (savedTheme === 'midnight') { document.documentElement.classList.add('dark'); document.documentElement.classList.add('midnight'); }
+    initCustomFontOnLoad();
     
     document.addEventListener('click', () => $i('custom-context-menu').classList.add('hidden') );
     
@@ -889,7 +891,7 @@ async function selectChannel(ch) {
              if (plugins.messageLogger) messageStore[m.id] = m;
              if (chLastRead && !hasPlacedNewDiv && cmpSnowflakes(m.id, chLastRead) > 0) { fragment.appendChild(crDivider("新しいメッセージ")); hasPlacedNewDiv = true; }
              const prev = (i > 0) ? arr[i-1] : null; const isGrouped = prev && !m.referenced_message && (prev.author.id === m.author.id) && !m.webhook_id && !prev.webhook_id && m.type === 0 && prev.type === 0 && (new Date(m.timestamp) - new Date(prev.timestamp) < 5 * 60 * 1000);
-             fragment.appendChild(crMsgEl(m, isGrouped));
+             fragment.appendChild(crMsgEl(m, isGrouped, !!(prev && prev.referenced_message)));
         });
         container.appendChild(fragment); container.scrollTop = container.scrollHeight;
         saveLastRead(ch.id, arr[arr.length - 1].id);
@@ -905,12 +907,12 @@ async function loadMoreMessages() {
     if (res.data && res.data.length > 0) {
         const messages = res.data; oldestMessageId = messages[messages.length - 1].id;
         const fragment = document.createDocumentFragment(); const arr = messages.reverse();
-        let lastBatchAuthId = null; let lastBatchTimestamp = 0;
+        let lastBatchAuthId = null; let lastBatchTimestamp = 0; let lastBatchWasReply = false;
         arr.forEach((m, index) => {
             if (plugins.messageLogger) messageStore[m.id] = m; let isGrouped = false;
             if (index > 0 && !m.referenced_message) { const timeDiff = new Date(m.timestamp).getTime() - lastBatchTimestamp; if (lastBatchAuthId === m.author.id && !m.webhook_id && timeDiff < 5 * 60 * 1000) isGrouped = true; }
-            fragment.appendChild(crMsgEl(m, isGrouped));
-            lastBatchAuthId = m.author.id; lastBatchTimestamp = new Date(m.timestamp).getTime();
+            fragment.appendChild(crMsgEl(m, isGrouped, lastBatchWasReply));
+            lastBatchAuthId = m.author.id; lastBatchTimestamp = new Date(m.timestamp).getTime(); lastBatchWasReply = !!m.referenced_message;
         });
         container.prepend(fragment); container.scrollTop = container.scrollHeight - oldScrollHeight;
     } else oldestMessageId = null;
@@ -935,7 +937,7 @@ function parseMarkdown(t) {
         .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-[var(--text-link)] hover:underline break-words max-w-full">$1</a>')
         .replace(/\n/g, '<br>'); 
 }
-function crMsgEl(m, isGrouped) {
+function crMsgEl(m, isGrouped, prevWasReply = false) {
     let contentHtml = parseMarkdown(m.content);
     if (m.mentions) {
         m.mentions.forEach(u => { 
@@ -960,8 +962,8 @@ function crMsgEl(m, isGrouped) {
             accessoriesHtml += `<a href="${stUrl}" target="_blank" class="block mt-2" title="${st.name}"><img src="${stUrl}" class="w-[140px] h-[140px] object-contain drop-shadow" alt="[Sticker] ${st.name}"></a>`;
         });
     }
-    const el = document.createElement('div'); el.id = `message-${m.id}`; if(m.nonce) el.dataset.nonce = m.nonce;
-    el.className = `message-group ${isGrouped ? 'grouped' : ''} flex flex-col relative w-full ${m.deleted ? 'opacity-80' : ''}`;
+    const el = document.createElement('div'); el.id = `message-${m.id}`; if(m.nonce) el.dataset.nonce = m.nonce; el.dataset.hasReply = m.referenced_message ? '1' : '0';
+    el.className = `message-group ${isGrouped ? (prevWasReply ? 'grouped-after-reply' : 'grouped') : ''} flex flex-col relative w-full ${m.deleted ? 'opacity-80' : ''}`;
     el.dataset.authorId = m.author.id;
     if(m.mentions && m.mentions.some(u=>u.id===currentAccount.id)) el.classList.add('message-mentioned');
     if (plugins.clickAction && !m.deleted) el.addEventListener('dblclick', () => startReply(m));
@@ -1063,14 +1065,14 @@ async function sendMessage() {
     const prevValid = findValidPreviousAuthor(container); let isGrouped = false;
     if(prevValid && prevValid.dataset.authorId === currentAccount.id && !prevValid.classList.contains('message-failed') && !replyingTo) { isGrouped = true; }
     const fakeMsg = { id: tempId, author: currentAccount, content: (content.length>maxCharCount ? '' : content), timestamp: now.toISOString(), isSending: true, nonce: nonceVal, attachments: attachedFiles.map(f=>({url:'#',filename:f.name, content_type:f.type})) };
-    container.appendChild(crMsgEl(fakeMsg, isGrouped)); container.scrollTop = container.scrollHeight;
+    container.appendChild(crMsgEl(fakeMsg, isGrouped, !!(prevValid && prevValid.dataset.hasReply === '1'))); container.scrollTop = container.scrollHeight;
     input.value = ''; const filesToSend = [...attachedFiles]; attachedFiles =[]; rndAtt(); handleInput();
     const body = new FormData(); body.append('payload_json', JSON.stringify({ content: fakeMsg.content, nonce: nonceVal, message_reference: replyingTo ? { message_id: replyingTo.messageId } : undefined })); filesToSend.forEach((f, i) => body.append(`files[${i}]`, f));
     cancelReply();
     const res = await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages`, 'POST', body, true);
     if (res.error) {
         const errEl = document.querySelector(`[data-nonce="${nonceVal}"]`);
-        if(errEl) { const failedMsg = { ...fakeMsg, isSending:false, isFailed:true, error: res.error.message }; errEl.replaceWith(crMsgEl(failedMsg, errEl.classList.contains('grouped'))); }
+        if(errEl) { const failedMsg = { ...fakeMsg, isSending:false, isFailed:true, error: res.error.message }; errEl.replaceWith(crMsgEl(failedMsg, errEl.classList.contains('grouped') || errEl.classList.contains('grouped-after-reply'), errEl.classList.contains('grouped-after-reply'))); }
     }
 }
 function handleInput() {
@@ -1097,15 +1099,16 @@ function connectWS() {
                 if (d.d.nonce) {
                      const optimisticTempEl = container.querySelector(`[data-nonce="${d.d.nonce}"]`);
                      if (optimisticTempEl) {
-                         const keepIsGroupedState = optimisticTempEl.classList.contains('grouped');
-                         optimisticTempEl.replaceWith(crMsgEl(d.d, keepIsGroupedState));
+                         const keepIsGroupedState = optimisticTempEl.classList.contains('grouped') || optimisticTempEl.classList.contains('grouped-after-reply');
+                         const keepPrevWasReply = optimisticTempEl.classList.contains('grouped-after-reply');
+                         optimisticTempEl.replaceWith(crMsgEl(d.d, keepIsGroupedState, keepPrevWasReply));
                          if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 100) container.scrollTop = container.scrollHeight;
                          return; 
                      }
                 }
                 const last = findValidPreviousAuthor(container); let grp = false;
                 if(last && last.dataset.authorId === d.d.author.id && !d.d.referenced_message && d.d.type === 0 && !last.classList.contains('message-failed') && (Date.now() - new Date(d.d.timestamp).getTime() < 5 * 60 * 1000)) { grp = true; }
-                container.appendChild(crMsgEl(d.d, grp));
+                container.appendChild(crMsgEl(d.d, grp, !!(last && last.dataset.hasReply === '1')));
                 if(d.d.author.id === currentAccount.id || container.scrollHeight - container.scrollTop - container.clientHeight < 100) container.scrollTop = container.scrollHeight;
              }
         } else if (d.t === 'MESSAGE_UPDATE') {
@@ -1114,14 +1117,14 @@ function connectWS() {
                  if(d.d.content && old.content !== d.d.content) {
                      editedMessages[d.d.id] = (editedMessages[d.d.id] || "") + `<div class="history-line">${parseMarkdown(old.content)}</div>`;
                      const combined = { ...old, ...d.d }; messageStore[d.d.id] = combined;
-                     const el = $i(`message-${d.d.id}`); if(el) el.replaceWith(crMsgEl(combined, el.classList.contains('grouped')));
+                     const el = $i(`message-${d.d.id}`); if(el) el.replaceWith(crMsgEl(combined, el.classList.contains('grouped') || el.classList.contains('grouped-after-reply'), el.classList.contains('grouped-after-reply')));
                  }
              }
         } else if (d.t === 'MESSAGE_DELETE') {
              const id = d.d.id;
              if (messageStore[id] && plugins.messageLogger) {
                  const m = messageStore[id]; m.deleted = true; const el = $i(`message-${id}`);
-                 if(el) el.replaceWith(crMsgEl(m, el.classList.contains('grouped')));
+                 if(el) el.replaceWith(crMsgEl(m, el.classList.contains('grouped') || el.classList.contains('grouped-after-reply'), el.classList.contains('grouped-after-reply')));
              } else { const el = $i(`message-${id}`); if(el) el.remove(); }
         } else if (d.t === 'GUILD_MEMBERS_CHUNK') {
              if (d.d.guild_id === currentChannel?.guild_id && showMemberList) {
@@ -1151,7 +1154,7 @@ function startEdit(id) {
     const t = contentEl.querySelector('textarea'); t.focus(); 
     t.onkeydown = async (e) => { 
         if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); await apiRequest(currentAccount.token, `/channels/${currentChannel.id}/messages/${id}`, 'PATCH', {content: t.value}); 
-        } else if(e.key==='Escape'){ const m = messageStore[id]; if(m) { msgEl.replaceWith(crMsgEl(m, msgEl.classList.contains('grouped'))); } } 
+        } else if(e.key==='Escape'){ const m = messageStore[id]; if(m) { msgEl.replaceWith(crMsgEl(m, msgEl.classList.contains('grouped') || msgEl.classList.contains('grouped-after-reply'), msgEl.classList.contains('grouped-after-reply'))); } } 
     };
 }
 function startReply(m) { replyingTo = { messageId: m.id, author: m.author }; const bar = $i('reply-bar'); bar.classList.remove('hidden'); bar.classList.add('flex'); $i('reply-username').innerText = m.author.global_name || m.author.username; $i('message-input').focus(); }
@@ -1172,9 +1175,64 @@ function rndPlg() {
         { key: 'userTags', name: 'UserTags', desc: '名前の右側に役職/権限/WEBHOOKの青色マークを表示' }
     ];
     defs.forEach(p => { const item = document.createElement('div'); item.className = "plugin-item"; item.innerHTML = `<div><div class="font-bold text-[var(--text-primary)]">${p.name}</div><div class="text-xs text-[var(--text-secondary)] mt-0.5">${p.desc}</div></div><label class="switch"><input type="checkbox" ${plugins[p.key]?'checked':''} data-key="${p.key}"><span class="slider"></span></label>`; item.querySelector('input').onchange = (e) => { plugins[p.key] = e.target.checked; localStorage.setItem('plugins', JSON.stringify(plugins)); handleInput(); }; list.appendChild(item); });
+    
+    const fontItem = document.createElement('div');
+    fontItem.className = "plugin-item flex-col items-start gap-2";
+    const savedFontName = localStorage.getItem('customFontName') || '';
+    fontItem.innerHTML = `
+        <div class="w-full">
+            <div class="font-bold text-[var(--text-primary)]">Font Loader</div>
+            <div class="text-xs text-[var(--text-secondary)] mt-0.5">.ttf/.otf/.woffファイルをアップロードして全体のフォントを変更します</div>
+            <div class="text-xs mt-1 ${savedFontName ? 'text-green-500 font-bold' : 'text-[var(--text-secondary)]'}" id="font-loader-status">${savedFontName ? `適用中: ${savedFontName}` : '未適用'}</div>
+        </div>
+        <div class="flex items-center gap-2 w-full mt-1">
+            <input type="file" id="font-file-input" accept=".ttf,.otf,.woff,.woff2" class="hidden">
+            <button id="font-upload-btn" class="text-xs px-3 py-1.5 rounded bg-[var(--button-bg)] text-white font-bold hover:opacity-90">フォントをアップロード</button>
+            <button id="font-remove-btn" class="text-xs px-3 py-1.5 rounded bg-red-600 text-white font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed" ${savedFontName ? '' : 'disabled'}>フォント適用解除</button>
+        </div>
+    `;
+    list.appendChild(fontItem);
+    $i('font-upload-btn').onclick = () => $i('font-file-input').click();
+    $i('font-file-input').onchange = (e) => { if (e.target.files.length) handleFontUpload(e.target.files[0]); };
+    $i('font-remove-btn').onclick = () => removeCustomFont();
     list.appendChild(Object.assign(document.createElement('div'),{innerHTML: `<a href="https://github.com/Bloxd-H/discord_lite" target="_blank" class="text-xs text-blue-500 hover:underline block mt-4 text-center">GitHub Repository</a>`}));
 }
 function rndThm() { const current = localStorage.theme || 'dark'; $i('theme-check-dark').classList.toggle('hidden', current !== 'dark'); $i('theme-check-light').classList.toggle('hidden', current !== 'light'); $i('theme-check-midnight').classList.toggle('hidden', current !== 'midnight'); }
+function applyCustomFontFromDataUrl(dataUrl, fontName) {
+    let styleEl = $i('custom-font-style');
+    if (!styleEl) { styleEl = document.createElement('style'); styleEl.id = 'custom-font-style'; document.head.appendChild(styleEl); }
+    styleEl.textContent = `
+        @font-face { font-family: 'CustomUserFont'; src: url('${dataUrl}'); }
+        body, button, input, textarea, .font-sans { font-family: 'CustomUserFont', ui-sans-serif, system-ui, sans-serif !important; }
+    `;
+}
+function handleFontUpload(file) {
+    if (file.size > 4 * 1024 * 1024) { showErrorToast('フォントファイルは4MB以下にしてください'); return; }
+    const validExt = /\.(ttf|otf|woff2?|)$/i.test(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+        const dataUrl = reader.result;
+        try {
+            localStorage.setItem('customFontData', dataUrl);
+            localStorage.setItem('customFontName', file.name);
+        } catch(e) { showErrorToast('フォントの保存に失敗しました（サイズが大きすぎる可能性があります）'); return; }
+        applyCustomFontFromDataUrl(dataUrl, file.name);
+        showToast(`フォントを適用しました: ${file.name}`);
+        rndPlg();
+    };
+    reader.onerror = () => showErrorToast('フォントファイルの読み込みに失敗しました');
+    reader.readAsDataURL(file);
+}
+function removeCustomFont() {
+    localStorage.removeItem('customFontData'); localStorage.removeItem('customFontName');
+    const styleEl = $i('custom-font-style'); if (styleEl) styleEl.remove();
+    showToast('フォント適用を解除しました');
+    rndPlg();
+}
+function initCustomFontOnLoad() {
+    const dataUrl = localStorage.getItem('customFontData'); const fontName = localStorage.getItem('customFontName');
+    if (dataUrl && fontName) applyCustomFontFromDataUrl(dataUrl, fontName);
+}
 function setTheme(mode) {
     document.documentElement.classList.remove('dark', 'midnight');
     if (mode === 'dark') { document.documentElement.classList.add('dark'); }
